@@ -2305,7 +2305,7 @@ function editorCloseAllTabs() {
 
 function editorDestroyEditor() {
   if (editorInstance) {
-    editorInstance.toTextArea();
+    try { editorInstance.toTextArea(); } catch {}
     editorInstance = null;
   }
   const container = document.getElementById('editor-container');
@@ -2317,12 +2317,13 @@ function editorDestroyEditor() {
 }
 
 function editorShowEditor(fileName, content) {
+  if (editorInstance) {
+    try { editorInstance.toTextArea(); } catch {}
+    editorInstance = null;
+  }
+
   const container = document.getElementById('editor-container');
   container.innerHTML = '<textarea id="editor-textarea">' + esc(content) + '</textarea>';
-
-  if (editorInstance) {
-    editorInstance.toTextArea();
-  }
 
   const mode = editorDetectMode(fileName);
   editorInstance = CodeMirror.fromTextArea(document.getElementById('editor-textarea'), {
