@@ -193,4 +193,48 @@ export const agentCommand = new Command()
       }
       console.log('');
     }),
+  )
+  .command('import', new Command()
+    .description('Import an agent configuration from a marketplace URL')
+    .arguments('<url:string>')
+    .action(async (_: void, url: string) => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.log(red(`  Fetch failed: ${res.status} ${res.statusText}`));
+        return;
+      }
+      const data = await res.json() as {
+        name: string;
+        description?: string;
+        provider?: string;
+        model?: string;
+        temperature?: number;
+        tools?: string[];
+        tags?: string[];
+        systemPrompt?: string;
+        soulContent?: string;
+      };
+
+      if (!data.name) {
+        console.log(red('  Invalid agent config: missing required field "name"'));
+        return;
+      }
+
+      try {
+        const agent = await registerAgent({
+          name: data.name,
+          description: data.description,
+          provider: data.provider as ProviderKind,
+          model: data.model,
+          temperature: data.temperature,
+          soul: data.soulContent,
+          systemPrompt: data.systemPrompt,
+          tools: data.tools,
+          tags: data.tags,
+        });
+        console.log(green(`  ✓ Imported agent "${agent.name}" (${agent.id}) from marketplace`));
+      } catch (e) {
+        console.log(red(`  Failed to import agent: ${(e as Error).message}`));
+      }
+    }),
   );

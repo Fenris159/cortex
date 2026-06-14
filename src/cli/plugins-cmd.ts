@@ -32,12 +32,28 @@ export const pluginsCommand = new Command()
   .command(
     'install',
     new Command()
-      .description('Install a plugin from a manifest JSON file or URL')
+      .description('Install a plugin from a file, URL, or marketplace reference')
       .arguments('<source:string>')
       .action(async (_: void, source: string) => {
         await runMigrations();
         let manifest: unknown;
-        if (source.startsWith('http://') || source.startsWith('https://')) {
+        if (source.startsWith('marketplace:')) {
+          const rest = source.slice('marketplace:'.length);
+          const match = rest.match(/^([^/]+)\/plugins\/(.+)$/);
+          if (!match) {
+            console.log(red('  Invalid marketplace reference. Use marketplace:<host>/plugins/<slug>'));
+            return;
+          }
+          const host = match[1];
+          const slug = match[2];
+          const url = `https://${host}/api/marketplace/plugins/${slug}/download`;
+          const res = await fetch(url);
+          if (!res.ok) {
+            console.log(red(`  Marketplace fetch failed: ${res.status} ${res.statusText}`));
+            return;
+          }
+          manifest = await res.json();
+        } else if (source.startsWith('http://') || source.startsWith('https://')) {
           const res = await fetch(source);
           if (!res.ok) { console.log(red(`  Fetch failed: ${res.status}`)); return; }
           manifest = await res.json();
