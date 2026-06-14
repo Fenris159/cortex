@@ -1,5 +1,5 @@
 import { agentTurn } from '../agent/loop.ts';
-import { loadSoul, buildSystemPrompt } from '../agent/soul.ts';
+import { loadSoulContext, buildSystemPrompt } from '../agent/soul.ts';
 import { createSession, closeSession } from '../db/sessions.ts';
 import { logEvent } from '../db/lens.ts';
 import { initSessionDb } from '../db/migrate.ts';
@@ -87,8 +87,8 @@ export function handleWebSocket(req: Request): Response {
           send(ws, { type: 'session', sessionId });
         }
 
-        const soul = await loadSoul();
-        const systemPrompt = buildSystemPrompt(soul);
+        const { soul, user, memory } = await loadSoulContext();
+        const systemPrompt = buildSystemPrompt(soul, undefined, user, memory);
 
         const registry = new ToolRegistry();
         registry.register(fileReadTool);
