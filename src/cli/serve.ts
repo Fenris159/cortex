@@ -2,6 +2,32 @@ import { Command } from '@cliffy/command';
 import { bold, green, dim, cyan } from '@std/fmt/colors';
 import { startServer } from '../server/server.ts';
 
+async function findServerProcess(
+  port: number,
+): Promise<{ pid: number; host: string } | null> {
+  const pgrep = new Deno.Command('pgrep', { args: ['-f', 'cortex.*main.ts.*serve'] });
+  const out = await pgrep.output();
+  if (!out.success) return null;
+
+  const pids = new TextDecoder().decode(out.stdout).trim().split('\n').map(Number).filter(Boolean);
+  for (const pid of pids) {
+    try {
+      const cmdline = await Deno.readTextFile(`/proc/${pid}/cmdline`);
+      const args = cmdline.split('\0');
+      let host = '127.0.0.1';
+      let foundPort = 3000;
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '--host' && i + 1 < args.length) host = args[i + 1];
+        if (args[i] === '--port' && i + 1 < args.length) foundPort = Number(args[i + 1]);
+      }
+      if (foundPort === port) return { pid, host };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export const serveCommand = new Command()
   .name('serve')
   .description('Start the Cortex HTTP + WebSocket server with Web UI')
@@ -12,14 +38,18 @@ export const serveCommand = new Command()
   .action(async (opts: { port: number; host: string; daemon?: boolean; restart?: boolean }) => {
     if (opts.daemon) {
       if (opts.restart) {
-        // Kill any existing cortex serve background process on this port
-        const killPattern = `cortex.*main.ts.*serve.*--port ${opts.port}`;
-        try {
-          const killCmd = new Deno.Command('pkill', { args: ['-f', killPattern] });
-          await killCmd.output();
-          console.log(cyan(`  Stopped existing server on port ${opts.port}`));
-          await new Promise((r) => setTimeout(r, 1000));
-        } catch {
+        const existing = await findServerProcess(opts.port);
+        if (existing) {
+          try {
+            Deno.kill(existing.pid, 'SIGTERM');
+            console.log(cyan(`  Stopped existing server (pid ${existing.pid})`));
+            await new Promise((r) => setTimeout(r, 1000));
+          } catch {
+            console.log(dim('  Could not stop existing server'));
+          }
+          // Use the original host from the running process, not the CLI default
+          opts.host = existing.host;
+        } else {
           console.log(dim(`  No existing server found on port ${opts.port}`));
         }
       }
