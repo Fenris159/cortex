@@ -18,6 +18,16 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Check version consistency
+        run: |
+          FILE_VERSION=$(cat VERSION)
+          JSON_VERSION=$(deno eval "console.log(JSON.parse(Deno.readTextFileSync('deno.json')).version)")
+          if [ "$FILE_VERSION" != "$JSON_VERSION" ]; then
+            echo "Version mismatch: VERSION=$FILE_VERSION deno.json=$JSON_VERSION"
+            exit 1
+          fi
+
       - run: deno lint
       - run: deno fmt --check
       - run: deno check src/main.ts

@@ -63,7 +63,7 @@ async function handleIntent(
   }
 }
 
-async function main(): Promise<void> {
+export async function runValidator(): Promise<void> {
   console.log('[validator] Starting Cortex Validator process...');
   await runMigrations();
   console.log('[validator] Ready.');
@@ -88,4 +88,6 @@ async function main(): Promise<void> {
   });
 }
 
-await main();
+if (import.meta.main) {
+  await runValidator();
+}

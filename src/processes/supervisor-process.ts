@@ -1,44 +1,38 @@
-import { pingProcess, ensureSocketDir, VALIDATOR_SOCK, EXECUTOR_SOCK, SCHEDULER_SOCK } from '../ipc/transport.ts';
+import { ensureSocketDir, VALIDATOR_SOCK, EXECUTOR_SOCK, SCHEDULER_SOCK } from '../ipc/transport.ts';
 
 interface ProcDef {
   name: string;
   label: string;
-  entry: string;
   sock: string;
-  permissions: string[];
 }
 
 const PROCESS_DEFS: ProcDef[] = [
-  {
-    name: 'validator',
-    label: 'Cortex Validator',
-    entry: './validator-process.ts',
-    sock: VALIDATOR_SOCK,
-    permissions: ['--allow-read', '--allow-write', '--allow-net', '--allow-env', '--allow-sys', '--allow-ffi'],
-  },
-  {
-    name: 'executor',
-    label: 'Cortex Executor',
-    entry: './executor-process.ts',
-    sock: EXECUTOR_SOCK,
-    permissions: ['--allow-read', '--allow-write', '--allow-run', '--allow-net', '--allow-env', '--allow-sys', '--allow-ffi'],
-  },
-  {
-    name: 'scheduler',
-    label: 'Cortex Scheduler',
-    entry: './scheduler-process.ts',
-    sock: SCHEDULER_SOCK,
-    permissions: ['--allow-read', '--allow-write', '--allow-run', '--allow-net', '--allow-env', '--allow-sys', '--allow-ffi'],
-  },
+  { name: 'validator', label: 'Cortex Validator', sock: VALIDATOR_SOCK },
+  { name: 'executor', label: 'Cortex Executor', sock: EXECUTOR_SOCK },
+  { name: 'scheduler', label: 'Cortex Scheduler', sock: SCHEDULER_SOCK },
 ];
 
 const parentsToKill = new Set<number>();
 
+function isCompiledBinary(): boolean {
+  const p = Deno.execPath();
+  const name = p.split('/').pop()?.split('\\').pop() || '';
+  return name !== 'deno' && name !== 'deno.exe';
+}
+
+function getMainEntryPath(): string {
+  return new URL('../main.ts', import.meta.url).pathname;
+}
+
 async function spawnDaemon(proc: ProcDef): Promise<Deno.ChildProcess> {
   await ensureSocketDir();
-  const entryPath = new URL(proc.entry, import.meta.url).pathname;
-  const cmd = new Deno.Command(Deno.execPath(), {
-    args: ['run', ...proc.permissions, entryPath],
+  const execPath = Deno.execPath();
+  const args: string[] = isCompiledBinary()
+    ? ['--subprocess', proc.name]
+    : ['run', '--allow-all', getMainEntryPath(), '--subprocess', proc.name];
+
+  const cmd = new Deno.Command(execPath, {
+    args,
     stdout: 'null',
     stderr: 'null',
     stdin: 'null',
@@ -48,7 +42,7 @@ async function spawnDaemon(proc: ProcDef): Promise<Deno.ChildProcess> {
   return child;
 }
 
-async function supervise(): Promise<void> {
+export async function runSupervisor(): Promise<void> {
   const children = new Map<string, { proc: ProcDef; process: Deno.ChildProcess; restartCount: number }>();
 
   async function startOne(proc: ProcDef): Promise<void> {
@@ -65,7 +59,6 @@ async function supervise(): Promise<void> {
     children.set(proc.name, { proc, process, restartCount });
     console.log(`[supervisor] ${proc.label} started (pid ${process.pid})`);
 
-    // Monitor exit in background
     (async () => {
       const status = await process.status;
       parentsToKill.delete(process.pid);
@@ -80,13 +73,11 @@ async function supervise(): Promise<void> {
     })();
   }
 
-  // Start all processes
   for (const proc of PROCESS_DEFS) {
     await startOne(proc);
   }
 
-  // Handle shutdown
-  const shutdown = async () => {
+  const shutdown = () => {
     console.log('\n[supervisor] Shutting down...');
     for (const [name, child] of children) {
       try { child.process.kill('SIGTERM'); } catch { /* ignore */ }
@@ -102,8 +93,9 @@ async function supervise(): Promise<void> {
     // signal listeners not available in all Deno runtimes
   }
 
-  // Block forever
   await new Promise(() => {});
 }
 
-await supervise();
+if (import.meta.main) {
+  await runSupervisor();
+}

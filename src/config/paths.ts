@@ -60,6 +60,16 @@ export const PATHS = {
     return join(this.dataDir, 'workspaces');
   },
 
+  get installManifest() {
+    return join(this.configDir, 'install.json');
+  },
+  get updateCache() {
+    return join(this.configDir, 'update-cache.json');
+  },
+  get updateLock() {
+    return join(this.configDir, 'update.lock');
+  },
+
   sessionDb(sessionId: string): string {
     return join(this.sessionsDir, `${sessionId}.db`);
   },

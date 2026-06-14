@@ -114,7 +114,7 @@ async function handleExecute(
   }
 }
 
-async function main(): Promise<void> {
+export async function runExecutor(): Promise<void> {
   console.log('[executor] Starting Cortex Executor process...');
   await runMigrations();
   console.log('[executor] Ready.');
@@ -139,4 +139,6 @@ async function main(): Promise<void> {
   });
 }
 
-await main();
+if (import.meta.main) {
+  await runExecutor();
+}

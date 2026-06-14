@@ -1,6 +1,8 @@
 import { Command } from '@cliffy/command';
 import { bold, green, red, dim, cyan } from '@std/fmt/colors';
 import { pingProcess, VALIDATOR_SOCK, EXECUTOR_SOCK, SCHEDULER_SOCK } from '../ipc/transport.ts';
+import { checkForUpdates } from '../update/mod.ts';
+import { loadConfig } from '../config/config.ts';
 
 const PROCESS_DEFS = [
   { name: 'validator', label: 'Cortex Validator', sock: VALIDATOR_SOCK },
@@ -8,15 +10,24 @@ const PROCESS_DEFS = [
   { name: 'scheduler', label: 'Cortex Scheduler', sock: SCHEDULER_SOCK },
 ] as const;
 
-const SUPERVISOR_ENTRY = '../processes/supervisor-process.ts';
-
-function supervisorPath(): string {
-  return new URL(SUPERVISOR_ENTRY, import.meta.url).pathname;
+function isCompiledBinary(): boolean {
+  const p = Deno.execPath();
+  const name = p.split('/').pop()?.split('\\').pop() || '';
+  return name !== 'deno' && name !== 'deno.exe';
 }
 
-async function spawnSupervisor(stdio: 'null' | 'inherit'): Promise<void> {
-  const cmd = new Deno.Command(Deno.execPath(), {
-    args: ['run', '--allow-all', supervisorPath()],
+function getSupervisorEntryPath(): string {
+  return new URL('../processes/supervisor-process.ts', import.meta.url).pathname;
+}
+
+function spawnSupervisor(stdio: 'null' | 'inherit'): void {
+  const execPath = Deno.execPath();
+  const args: string[] = isCompiledBinary()
+    ? ['--subprocess', 'supervisor']
+    : ['run', '--allow-all', getSupervisorEntryPath()];
+
+  const cmd = new Deno.Command(execPath, {
+    args,
     stdout: stdio,
     stderr: stdio,
     stdin: 'null',
@@ -24,18 +35,31 @@ async function spawnSupervisor(stdio: 'null' | 'inherit'): Promise<void> {
   cmd.spawn();
 }
 
-/** Start the daemon supervisor in the background if not already running. Used by chat/serve for auto-start. */
+async function autoCheck(): Promise<void> {
+  try {
+    const config = await loadConfig();
+    if (!config.update.checkOnStartup) return;
+    const result = await checkForUpdates();
+    if (result.status === 'available') {
+      console.error(dim(`[update] Version ${result.latestVersion} available (current: ${result.currentVersion}). Run \`cortex update\` to apply.`));
+    }
+  } catch {
+    // silently ignore check failures on startup
+  }
+}
+
 export async function ensureDaemons(): Promise<void> {
   const alive = await pingProcess(VALIDATOR_SOCK);
   if (alive) return;
 
   spawnSupervisor('null');
 
-  // Wait up to 6s for at least one daemon to be ready
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 200));
-    if (await pingProcess(VALIDATOR_SOCK)) return;
+    if (await pingProcess(VALIDATOR_SOCK)) break;
   }
+
+  await autoCheck();
 }
 
 async function stopDaemons(): Promise<void> {
@@ -60,16 +84,15 @@ async function startDaemon(quiet = false): Promise<void> {
   spawnSupervisor('null');
   if (!quiet) console.log(green('  ✓ Cortex daemon supervisor started in background'));
 
-  // Brief wait for processes to come online
   for (let i = 0; i < 10; i++) {
     await new Promise((r) => setTimeout(r, 200));
     if (await pingProcess(VALIDATOR_SOCK)) break;
   }
 
+  await autoCheck();
+
   Deno.exit(0);
 }
-
-// ── CLI commands ────────────────────────────────────────────
 
 export const daemonCommand = new Command()
   .name('daemon')
@@ -93,7 +116,6 @@ export const daemonCommand = new Command()
       .action(async () => {
         console.log(bold('Restarting Cortex daemon processes…'));
         await stopDaemons();
-        // Small delay to ensure sockets are released
         await new Promise((r) => setTimeout(r, 1000));
         console.log('');
         await startDaemon();
@@ -104,8 +126,13 @@ export const daemonCommand = new Command()
     new Command()
       .description('Run the daemon supervisor in the foreground (for systemd/tmux)')
       .action(async () => {
-        const cmd = new Deno.Command(Deno.execPath(), {
-          args: ['run', '--allow-all', supervisorPath()],
+        const execPath = Deno.execPath();
+        const args: string[] = isCompiledBinary()
+          ? ['--subprocess', 'supervisor']
+          : ['run', '--allow-all', getSupervisorEntryPath()];
+
+        const cmd = new Deno.Command(execPath, {
+          args,
           stdout: 'inherit',
           stderr: 'inherit',
           stdin: 'inherit',

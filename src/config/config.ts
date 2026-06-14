@@ -68,6 +68,15 @@ export interface AgentConfig {
   updatedAt: string;
 }
 
+export interface UpdateConfig {
+  channel: 'stable' | 'pre-release';
+  checkOnStartup: boolean;
+  autoUpdate: boolean;
+  checkIntervalHours: number;
+  githubToken: string | null;
+  gpgKeyPath: string | null;
+}
+
 export interface CortexConfig {
   version: number;
   defaultProvider: ProviderKind;
@@ -82,6 +91,7 @@ export interface CortexConfig {
   agents: Record<string, AgentConfig>;
   /** Currently selected/default agent ID */
   defaultAgent: string;
+  update: UpdateConfig;
 }
 
 const DEFAULT_CONFIG: CortexConfig = {
@@ -114,6 +124,14 @@ const DEFAULT_CONFIG: CortexConfig = {
   },
   agents: {},
   defaultAgent: 'default',
+  update: {
+    channel: 'stable',
+    checkOnStartup: true,
+    autoUpdate: false,
+    checkIntervalHours: 24,
+    githubToken: null,
+    gpgKeyPath: null,
+  },
 };
 
 let _config: CortexConfig | null = null;

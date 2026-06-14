@@ -19,10 +19,43 @@ import { importCommand } from './cli/import-cmd.ts';
 import { agentCommand } from './cli/agent-cmd.ts';
 import { serviceCommand } from './cli/service-cmd.ts';
 import { stopCommand } from './cli/stop.ts';
+import { updateCommand } from './cli/update-cmd.ts';
+import { runValidator } from './processes/validator-process.ts';
+import { runExecutor } from './processes/executor-process.ts';
+import { runScheduler } from './processes/scheduler-process.ts';
+import { runSupervisor } from './processes/supervisor-process.ts';
+
+const subprocessIdx = Deno.args.findIndex((a) => a === '--subprocess');
+if (subprocessIdx !== -1 && Deno.args[subprocessIdx + 1]) {
+  const role = Deno.args[subprocessIdx + 1];
+  switch (role) {
+    case 'validator':
+      await runValidator();
+      Deno.exit(0);
+      break;
+    case 'executor':
+      await runExecutor();
+      Deno.exit(0);
+      break;
+    case 'scheduler':
+      await runScheduler();
+      Deno.exit(0);
+      break;
+    case 'supervisor':
+      await runSupervisor();
+      Deno.exit(0);
+      break;
+    default:
+      console.error(`Unknown subprocess: ${role}`);
+      Deno.exit(1);
+  }
+}
+
+const version = await getVersion();
 
 const program = new Command()
   .name('cortex')
-  .version('0.1.0')
+  .version(version)
   .description('CortexPrism — agentic harness system')
   .command('chat', chatCommand)
   .command('setup', setupCommand)
@@ -43,6 +76,22 @@ const program = new Command()
   .command('import', importCommand)
   .command('agent', agentCommand)
   .command('service', serviceCommand)
-  .command('stop', stopCommand);
+  .command('stop', stopCommand)
+  .command('update', updateCommand);
 
 await program.parse(Deno.args);
+
+async function getVersion(): Promise<string> {
+  try {
+    const text = await Deno.readTextFile(new URL('../VERSION', import.meta.url).pathname);
+    return text.trim();
+  } catch {
+    try {
+      const text = await Deno.readTextFile(new URL('../deno.json', import.meta.url).pathname);
+      const { version } = JSON.parse(text);
+      return version || '0.1.0';
+    } catch {
+      return '0.1.0';
+    }
+  }
+}
