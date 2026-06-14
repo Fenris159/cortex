@@ -43,6 +43,20 @@ async function waitForServer(host: string, port: number, timeoutMs: number): Pro
   return false;
 }
 
+export async function stopBackgroundServer(port = 3000): Promise<boolean> {
+  const existing = await findServerProcess(port);
+  if (!existing) return false;
+
+  try {
+    Deno.kill(existing.pid, 'SIGTERM');
+    console.log(cyan(`  Stopped cortex server (pid ${existing.pid}, http://${existing.host}:${port})`));
+    return true;
+  } catch {
+    console.log(dim('  Could not stop server process'));
+    return false;
+  }
+}
+
 export const serveCommand = new Command()
   .name('serve')
   .description('Start the Cortex HTTP + WebSocket server with Web UI')
@@ -50,7 +64,14 @@ export const serveCommand = new Command()
   .option('-H, --host <host:string>', 'Host to bind to', { default: '127.0.0.1' })
   .option('-d, --daemon', 'Run the server in the background')
   .option('-r, --restart', 'Restart an existing background server (only with --daemon)')
-  .action(async (opts: { port: number; host: string; daemon?: boolean; restart?: boolean }) => {
+  .option('-s, --stop', 'Stop a background server')
+  .action(async (opts: { port: number; host: string; daemon?: boolean; restart?: boolean; stop?: boolean }) => {
+    if (opts.stop) {
+      const stopped = await stopBackgroundServer(opts.port);
+      if (!stopped) console.log(dim(`  No server found on port ${opts.port}`));
+      Deno.exit(0);
+    }
+
     if (opts.daemon) {
       if (opts.restart) {
         const existing = await findServerProcess(opts.port);
@@ -86,7 +107,6 @@ export const serveCommand = new Command()
         Deno.exit(1);
       }
 
-      // Wait up to 5s for the server to respond to /api/health
       const alive = await waitForServer(opts.host, opts.port, 5000);
       if (alive) {
         console.log(green(`  ✓ Cortex server started in background (http://${opts.host}:${opts.port})`));

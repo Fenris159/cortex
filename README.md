@@ -56,6 +56,7 @@ Commands:
   run <file>        Execute a code file in the sandbox
   serve             Start the HTTP + WebSocket server with Web UI
   daemon            Manage background processes (validator, executor, scheduler)
+  stop              Stop all background processes (server + daemons)
   memory            Search and manage memory
   reflect           Inspect and consolidate reflection patterns
   jobs              Manage scheduled jobs
@@ -114,6 +115,10 @@ cortex serve                         # http://127.0.0.1:3000 (foreground)
 cortex serve --port 8080 --host 0.0.0.0
 cortex serve -d                      # Run in the background (daemon mode)
 cortex serve -d -r                   # Restart background server on the same port
+cortex serve -s                      # Stop background server
+cortex stop                          # Stop server + daemons
+cortex stop --server-only            # Stop only the HTTP server
+cortex stop --daemon-only            # Stop only the daemon processes
 ```
 
 Web UI tabs: **Chat** (WebSocket streaming), **Lens** (activity timeline), **Memory** (search), **Jobs** (status)

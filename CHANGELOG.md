@@ -34,6 +34,8 @@ Versioning: [Semantic Versioning](https://semver.org/)
 - **Auto-start daemons** — `cortex chat` and `cortex serve` automatically start the daemon supervisor if not already running
 - **`cortex daemon restart`** — restart all daemon processes (stop + 1s delay + start)
 - **`cortex serve --restart` / `-r`** — restart a background server by killing the existing process on the same port before starting a new one
+- **`cortex stop`** — stop all background processes (HTTP server + daemons) with a single command
+- **`cortex serve --stop` / `-s`** — stop a background HTTP server by port
 
 ### Changed
 - **`daemon start`** now spawns a supervising process (not bare children), ensuring background processes stay alive
