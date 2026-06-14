@@ -184,7 +184,8 @@ const HTML = `<!DOCTYPE html>
   .editor-tab { padding:6px 12px; border-radius:6px 6px 0 0; font-size:12px; cursor:pointer; background:transparent; color:var(--text3); border:1px solid transparent; border-bottom:none; transition:all 0.12s; white-space:nowrap; }
   .editor-tab.active { background:var(--bg3); color:var(--text); border-color:var(--border); }
   .editor-tab:hover:not(.active) { color:var(--text2); }
-  .CodeMirror { height:100% !important; font-size:13px; font-family:'JetBrains Mono',monospace; background:var(--bg3) !important; color:var(--text) !important; }
+  #editor-container { position:relative; }
+  .CodeMirror { position:absolute; top:0; left:0; right:0; bottom:0; height:auto !important; font-size:13px; font-family:'JetBrains Mono',monospace; background:var(--bg3) !important; color:var(--text) !important; }
   .CodeMirror-gutters { background:var(--bg2) !important; border-right:1px solid var(--border) !important; }
   .CodeMirror-linenumber { color:var(--text3) !important; }
   .CodeMirror-cursor { border-left:2px solid var(--accent2) !important; }
@@ -420,8 +421,8 @@ const HTML = `<!DOCTYPE html>
       <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
         <!-- Tabs bar -->
         <div id="editor-tabs" style="display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;padding:0 8px;flex-shrink:0;"></div>
-        <!-- CodeMirror container -->
-        <div id="editor-container" style="flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <!-- CodeMirror container -->
+      <div id="editor-container" style="flex:1;overflow:hidden;display:flex;">
           <div style="text-align:center;color:var(--text3);">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3;margin-bottom:12px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <p style="font-size:14px;font-weight:500;">File Editor</p>
@@ -2323,7 +2324,8 @@ function editorShowEditor(fileName, content) {
   }
 
   const container = document.getElementById('editor-container');
-  container.innerHTML = '<textarea id="editor-textarea">' + esc(content) + '</textarea>';
+  container.innerHTML = '<textarea id="editor-textarea" style="width:100%;height:100%;border:none;background:var(--bg3);color:var(--text);font-family:JetBrains Mono,monospace;font-size:13px;resize:none;outline:none;padding:16px;">' + esc(content) + '</textarea>';
+  container.style.cssText = 'flex:1;overflow:hidden;display:flex;';
 
   const mode = editorDetectMode(fileName);
   editorInstance = CodeMirror.fromTextArea(document.getElementById('editor-textarea'), {

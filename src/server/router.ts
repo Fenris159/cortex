@@ -608,7 +608,7 @@ export async function handleApi(req: Request): Promise<Response | null> {
   const wsGlobalFilesMatch = path.match(/^\/api\/workspace\/files(\/.*)?$/);
   if (wsGlobalFilesMatch && req.method === 'GET') {
     const { getGlobalWorkspaceDir, resolveWorkspacePath } = await import('../workspace/paths.ts');
-    const relPath = workspaceRelPath(wsGlobalFilesMatch);
+    const relPath = workspaceRelPath(wsGlobalFilesMatch, 1);
     const targetPath = relPath ? resolveWorkspacePath('global', relPath, 'global') : getGlobalWorkspaceDir();
     try {
       const stat = await Deno.stat(targetPath);
@@ -628,16 +628,18 @@ export async function handleApi(req: Request): Promise<Response | null> {
 
   if (wsGlobalFilesMatch && req.method === 'PUT') {
     const { resolveWorkspacePath } = await import('../workspace/paths.ts');
-    const relPath = workspaceRelPath(wsGlobalFilesMatch);
+    const relPath = workspaceRelPath(wsGlobalFilesMatch, 1);
     const targetPath = resolveWorkspacePath('global', relPath, 'global');
     const { content } = await req.json() as { content: string };
+    const parent = targetPath.substring(0, targetPath.lastIndexOf('/'));
+    if (parent) await Deno.mkdir(parent, { recursive: true });
     await Deno.writeTextFile(targetPath, content);
     return json({ ok: true, path: targetPath });
   }
 
   if (wsGlobalFilesMatch && req.method === 'DELETE') {
     const { resolveWorkspacePath } = await import('../workspace/paths.ts');
-    const relPath = workspaceRelPath(wsGlobalFilesMatch);
+    const relPath = workspaceRelPath(wsGlobalFilesMatch, 1);
     const targetPath = resolveWorkspacePath('global', relPath, 'global');
     await Deno.remove(targetPath, { recursive: true });
     return json({ ok: true });
@@ -645,8 +647,8 @@ export async function handleApi(req: Request): Promise<Response | null> {
 
   // Workspace file routes for agent workspaces
   const wsAgentFilesMatch = path.match(/^\/api\/workspace\/agents\/([^/]+)\/files(\/.*)?$/);
-  function workspaceRelPath(match: RegExpMatchArray): string {
-    return (match[2] ?? '').replace(/^\//, '');
+  function workspaceRelPath(match: RegExpMatchArray, group = 2): string {
+    return (match[group] ?? '').replace(/^\//, '');
   }
 
   if (wsAgentFilesMatch && req.method === 'GET') {
@@ -677,6 +679,8 @@ export async function handleApi(req: Request): Promise<Response | null> {
     const relPath = workspaceRelPath(wsAgentFilesMatch);
     const targetPath = resolveWorkspacePath(agentId, relPath, 'agent');
     const { content } = await req.json() as { content: string };
+    const parent = targetPath.substring(0, targetPath.lastIndexOf('/'));
+    if (parent) await Deno.mkdir(parent, { recursive: true });
     await Deno.writeTextFile(targetPath, content);
     return json({ ok: true, path: targetPath });
   }
