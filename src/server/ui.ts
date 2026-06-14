@@ -1828,13 +1828,13 @@ async function loadServices() {
         '</div>',
         '<div style="display:flex;gap:6px;flex-shrink:0;">',
         isRunning
-          ? '<button class="btn btn-ghost" style="font-size:12px;padding:4px 12px;" onclick="serviceAction(\'' + s.id + '\',\'stop\')">Stop</button>'
-          : '<button class="btn btn-primary" style="font-size:12px;padding:4px 12px;" onclick="serviceAction(\'' + s.id + '\',\'start\')">Start</button>',
+          ? '<button class="btn btn-ghost" style="font-size:12px;padding:4px 12px;" onclick="serviceAction(\\'' + s.id + '\\',\\'stop\\')">Stop</button>'
+          : '<button class="btn btn-primary" style="font-size:12px;padding:4px 12px;" onclick="serviceAction(\\'' + s.id + '\\',\\'start\\')">Start</button>',
         '</div>',
         '</div>',
         '</div>',
       ].join('');
-    }).join('\n');
+    }).join('\\n');
   } catch (e) {
     el.innerHTML = '<p style="color:var(--text3);font-size:13px;">Error: ' + e.message + '</p>';
   }
@@ -2070,7 +2070,7 @@ function filterCmdPalette(query) {
     return;
   }
   el.innerHTML = filtered.map((p, i) =>
-    '<button class="cmd-item' + (i === 0 ? ' active' : '') + '" onclick="navigateCmd(\'' + p.id + '\')" onmouseenter="highlightCmd(this)">' +
+    '<button class="cmd-item' + (i === 0 ? ' active' : '') + '" onclick="navigateCmd(\\'' + p.id + '\\')" onmouseenter="highlightCmd(this)">' +
     '<span class="cmd-icon">' + p.icon + '</span>' +
     '<span class="cmd-label"><strong>' + p.label + '</strong><br><span style="font-size:11px;color:var(--text3);">' + p.desc + '</span></span>' +
     '</button>'
@@ -2208,8 +2208,8 @@ function renderEditorTree() {
     const icon = isDir
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
       : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-    const nameClean = name.replace(/\/$/, '');
-    return '<button class="editor-tree-item' + (active ? ' active' : '') + '" onclick="editorOpenFile(\'' + esc(nameClean) + '\')" title="' + esc(nameClean) + '">' +
+    const nameClean = name.replace(/\\/$/, '');
+    return '<button class="editor-tree-item' + (active ? ' active' : '') + '" onclick="editorOpenFile(\\'' + esc(nameClean) + '\\')" title="' + esc(nameClean) + '">' +
       '<span class="icon">' + icon + '</span>' +
       '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(nameClean) + '</span>' +
       '</button>';
@@ -2264,9 +2264,9 @@ function editorAddTab(fileName) {
 function renderEditorTabs() {
   const bar = document.getElementById('editor-tabs');
   bar.innerHTML = editorOpenFiles.map(f =>
-    '<span class="editor-tab' + (f === editorCurrentFile ? ' active' : '') + '" onclick="editorSwitchTab(\'' + esc(f) + '\')">' +
+    '<span class="editor-tab' + (f === editorCurrentFile ? ' active' : '') + '" onclick="editorSwitchTab(\\'' + esc(f) + '\\')">' +
     esc(f) +
-    (editorOpenFiles.length > 1 ? '<span style="margin-left:6px;cursor:pointer;opacity:0.5;" onclick="event.stopPropagation();editorCloseTab(\'' + esc(f) + '\')">✕</span>' : '') +
+    (editorOpenFiles.length > 1 ? '<span style="margin-left:6px;cursor:pointer;opacity:0.5;" onclick="event.stopPropagation();editorCloseTab(\\'' + esc(f) + '\\')">✕</span>' : '') +
     '</span>'
   ).join('');
   renderEditorTree();
