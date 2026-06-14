@@ -1,4 +1,4 @@
-import { listSessions, getSession } from '../db/sessions.ts';
+import { listSessions, getSession, resumeSession, deleteSession as deleteSessionDb } from '../db/sessions.ts';
 import { getSessionEvents } from '../db/lens.ts';
 import { getLensDb, type InValue } from '../db/client.ts';
 import { listJobs } from '../scheduler/scheduler.ts';
@@ -95,6 +95,15 @@ export async function handleApi(req: Request): Promise<Response | null> {
     const session = await getSession(sessionMatch[1]);
     if (!session) return notFound('Session not found');
     return json(session);
+  }
+
+  // POST /api/sessions/:id/resume
+  const resumeMatch = path.match(/^\/api\/sessions\/([^/]+)\/resume$/);
+  if (req.method === 'POST' && resumeMatch) {
+    const session = await getSession(resumeMatch[1]);
+    if (!session) return notFound('Session not found');
+    await resumeSession(resumeMatch[1]);
+    return json({ ok: true });
   }
 
   // GET /api/sessions/:id/events
@@ -357,8 +366,9 @@ export async function handleApi(req: Request): Promise<Response | null> {
   // DELETE /api/sessions/:id
   const delSessionMatch = path.match(/^\/api\/sessions\/([^/]+)$/);
   if (req.method === 'DELETE' && delSessionMatch) {
-    const db = await getLensDb();
-    await db.run(`DELETE FROM lens_events WHERE session_id = ?`, [delSessionMatch[1]]);
+    const session = await getSession(delSessionMatch[1]);
+    if (!session) return notFound('Session not found');
+    await deleteSessionDb(delSessionMatch[1]);
     return json({ ok: true });
   }
 

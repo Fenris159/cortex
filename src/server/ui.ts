@@ -626,7 +626,8 @@ const HTML = `<!DOCTYPE html>
       <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
         <button class="btn btn-ghost" onclick="backToSessions()" style="padding:5px 10px;">← Back</button>
         <span id="session-detail-title" style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent2);"></span>
-        <button class="btn btn-ghost" style="margin-left:auto;font-size:12px;" onclick="exportSession(document.getElementById('session-detail-title').textContent)">⬇ Export JSON</button>
+        <button class="btn" style="margin-left:auto;font-size:12px;background:rgba(99,102,241,0.15);color:var(--accent2);" onclick="continueSession(document.getElementById('session-detail-title').textContent)">▶ Continue</button>
+        <button class="btn btn-ghost" style="font-size:12px;" onclick="exportSession(document.getElementById('session-detail-title').textContent)">⬇ Export JSON</button>
       </div>
       <div id="session-detail-log" style="flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;gap:10px;"></div>
     </div>
@@ -937,6 +938,8 @@ async function restoreSession() {
       sessionId = sid;
       currentAgentId = aid;
       document.getElementById('chat-session-id').textContent = sid.slice(-12);
+      // Reopen the session server-side
+      await fetch(BASE + '/api/sessions/' + encodeURIComponent(sid) + '/resume', { method: 'POST' });
       const res = await fetch(BASE + '/api/sessions/' + encodeURIComponent(sid) + '/messages');
       if (!res.ok) return;
       const msgs = await res.json();
@@ -1559,6 +1562,7 @@ function renderSessionsList(sessions) {
         <div style="font-size:11px;color:var(--text3);margin-top:2px;">\${s.turn_count} turns · \${new Date(s.started_at).toLocaleString()}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" style="padding:4px 10px;font-size:11px;background:rgba(99,102,241,0.1);color:var(--accent2);" onclick="event.stopPropagation();continueSession('\${s.id}')">▶ Continue</button>
         <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();exportSession('\${s.id}')">⬇ Export</button>
         <button class="btn" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.1);color:#f87171;" onclick="event.stopPropagation();deleteSession('\${s.id}')">✕</button>
       </div>
@@ -1578,31 +1582,71 @@ async function openSession(id) {
   document.getElementById('sessions-list-view').style.display = 'none';
   document.getElementById('sessions-detail-view').style.display = 'flex';
 
-  const events = await fetch(\`\${BASE}/api/sessions/\${id}/events\`).then(r => r.json()).catch(() => []);
+  const [msgs, events] = await Promise.all([
+    fetch(\`\${BASE}/api/sessions/\${encodeURIComponent(id)}/messages\`).then(r => r.ok ? r.json() : []).catch(() => []),
+    fetch(\`\${BASE}/api/sessions/\${id}/events\`).then(r => r.json()).catch(() => []),
+  ]);
   const el = document.getElementById('session-detail-log');
   const title = document.getElementById('session-detail-title');
   title.textContent = id;
 
-  el.innerHTML = events.length === 0
-    ? '<p style="color:var(--text3);font-size:13px;">No events recorded for this session.</p>'
-    : events.map(ev => {
-        const isUser = ev.event_type === 'user_message';
-        const isAgent = ev.event_type === 'agent_response';
-        const isTool = ev.event_type === 'tool_call' || ev.event_type === 'tool_approved';
-        if (isUser) return \`<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-          <div class="bubble-user" style="font-size:13px;">\${esc(ev.summary ?? ev.action ?? '')}</div></div>\`;
-        if (isAgent) return \`<div style="display:flex;justify-content:flex-start;margin-bottom:10px;">
-          <div class="bubble-agent md" style="font-size:13px;">\${md(ev.summary ?? ev.action ?? '')}</div></div>\`;
-        if (isTool) return \`<div style="display:flex;justify-content:flex-start;margin-bottom:6px;">
-          <div class="bubble-tool">⚙ \${esc(ev.action)} \${ev.duration_ms ? '· '+ev.duration_ms+'ms' : ''}</div></div>\`;
-        return \`<div style="font-size:11px;color:var(--text3);padding:2px 0;font-family:'JetBrains Mono',monospace;">
-          [\${ev.event_type}] \${esc(ev.summary ?? ev.action ?? '')}\${ev.duration_ms?' · '+ev.duration_ms+'ms':''}</div>\`;
-      }).join('');
+  if (msgs.length > 0) {
+    el.innerHTML = msgs.map(m => {
+      if (m.role === 'user') {
+        return \`<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+          <div class="bubble-user" style="font-size:13px;">\${esc(m.content)}</div></div>\`;
+      }
+      if (m.role === 'assistant') {
+        return \`<div style="display:flex;justify-content:flex-start;margin-bottom:10px;">
+          <div class="bubble-agent md" style="font-size:13px;">\${md(m.content)}</div></div>\`;
+      }
+      return '';
+    }).join('');
+  } else if (events.length > 0) {
+    el.innerHTML = events.map(ev => {
+      const isUser = ev.event_type === 'user_message';
+      const isAgent = ev.event_type === 'agent_response';
+      const isTool = ev.event_type === 'tool_call' || ev.event_type === 'tool_approved';
+      if (isUser) return \`<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <div class="bubble-user" style="font-size:13px;">\${esc(ev.summary ?? ev.action ?? '')}</div></div>\`;
+      if (isAgent) return \`<div style="display:flex;justify-content:flex-start;margin-bottom:10px;">
+        <div class="bubble-agent md" style="font-size:13px;">\${md(ev.summary ?? ev.action ?? '')}</div></div>\`;
+      if (isTool) return \`<div style="display:flex;justify-content:flex-start;margin-bottom:6px;">
+        <div class="bubble-tool">⚙ \${esc(ev.action)} \${ev.duration_ms ? '· '+ev.duration_ms+'ms' : ''}</div></div>\`;
+      return \`<div style="font-size:11px;color:var(--text3);padding:2px 0;font-family:'JetBrains Mono',monospace;">
+        [\${ev.event_type}] \${esc(ev.summary ?? ev.action ?? '')}\${ev.duration_ms?' · '+ev.duration_ms+'ms':''}</div>\`;
+    }).join('');
+  } else {
+    el.innerHTML = '<p style="color:var(--text3);font-size:13px;">No messages or events for this session.</p>';
+  }
 }
 
 function backToSessions() {
   document.getElementById('sessions-list-view').style.display = 'flex';
   document.getElementById('sessions-detail-view').style.display = 'none';
+}
+
+async function continueSession(id) {
+  await fetch(\`\${BASE}/api/sessions/\${encodeURIComponent(id)}/resume\`, { method: 'POST' });
+  sessionId = id;
+  saveSession();
+  showPage('chat');
+  const res = await fetch(\`\${BASE}/api/sessions/\${encodeURIComponent(id)}/messages\`);
+  if (res.ok) {
+    const msgs = await res.json();
+    chatLog.innerHTML = '';
+    for (const m of msgs) {
+      if (m.role === 'user') {
+        appendBubble('user', m.content);
+      } else if (m.role === 'assistant') {
+        const b = appendBubble('agent', m.content);
+        b.innerHTML = md(m.content);
+        if (m.token_count) appendMeta(0, m.token_count, 0, 0);
+      }
+    }
+    scrollChat();
+  }
+  document.getElementById('chat-session-id').textContent = id.slice(-12);
 }
 
 async function exportSession(id) {

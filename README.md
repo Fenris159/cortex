@@ -70,6 +70,8 @@ Commands:
 ```bash
 cortex chat                          # Start a chat session
 cortex chat --model gpt-4o           # Override model
+cortex chat --resume sess_abc123     # Resume an existing session
+cortex chat -s sess_abc123           # Resume (short flag)
 cortex chat --no-stream              # Disable streaming output
 ```
 
@@ -129,6 +131,9 @@ GET  /api/health
 GET  /api/sessions?limit=20
 GET  /api/sessions/:id
 GET  /api/sessions/:id/events
+GET  /api/sessions/:id/messages
+POST /api/sessions/:id/resume
+DELETE /api/sessions/:id
 GET  /api/jobs?status=pending
 GET  /api/memory/search?q=<query>
 WS   /ws   (streaming chat)

@@ -1,6 +1,6 @@
 import { agentTurn } from '../agent/loop.ts';
 import { loadSoulContext, buildSystemPrompt } from '../agent/soul.ts';
-import { createSession, closeSession } from '../db/sessions.ts';
+import { createSession, closeSession, getSession, resumeSession } from '../db/sessions.ts';
 import { logEvent } from '../db/lens.ts';
 import { initSessionDb } from '../db/migrate.ts';
 import { buildProvider } from '../llm/router.ts';
@@ -166,7 +166,12 @@ export function handleWebSocket(req: Request): Response {
         if (!sessionId) {
           sessionId = msg.sessionId ?? `sess_${Date.now().toString(36)}_ws`;
           sessionDbRef = await initSessionDb(sessionId);
-          await createSession(sessionId, 'web', undefined, activeAgent?.id);
+          const existing = await getSession(sessionId);
+          if (existing) {
+            await resumeSession(sessionId);
+          } else {
+            await createSession(sessionId, 'web', undefined, activeAgent?.id);
+          }
           await logEvent({
             event_type: 'session_start',
             session_id: sessionId,

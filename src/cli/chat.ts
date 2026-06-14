@@ -8,7 +8,7 @@ import { initSessionDb } from '../db/migrate.ts';
 import { runSetupWizard } from './setup.ts';
 import { runMigrations } from '../db/migrate.ts';
 import { loadSoulContext, buildSystemPrompt, ensureSoulFile } from '../agent/soul.ts';
-import { createSession, closeSession } from '../db/sessions.ts';
+import { createSession, closeSession, resumeSession, getSession } from '../db/sessions.ts';
 import { logEvent } from '../db/lens.ts';
 import { ToolRegistry } from '../tools/registry.ts';
 import type { Tool } from '../tools/types.ts';
@@ -45,9 +45,10 @@ export const chatCommand = new Command()
   .option('-m, --model <model:string>', 'Override the model for this session')
   .option('-p, --provider <provider:string>', 'Override the provider for this session')
   .option('-a, --agent <agent:string>', 'Use a specific agent identity')
+  .option('-s, --resume <sessionId:string>', 'Resume an existing session')
   .option('--list-agents', 'List available agents and exit')
   .option('--no-stream', 'Disable streaming output')
-  .action(async (options: { model?: string; provider?: string; agent?: string; listAgents?: boolean; stream?: boolean }) => {
+  .action(async (options: { model?: string; provider?: string; agent?: string; resume?: string; listAgents?: boolean; stream?: boolean }) => {
     let config = await loadConfig();
 
     if (await isFirstRun()) {
@@ -105,7 +106,7 @@ export const chatCommand = new Command()
 
     const cascadeRouter = buildCascadeRouter(config);
     const effectiveProvider = cascadeRouter ?? activeProvider;
-    const sid = makeSessionId();
+    const sid = options.resume ?? makeSessionId();
     const sessionDb = await initSessionDb(sid);
 
     // Load agent identity
@@ -117,7 +118,16 @@ export const chatCommand = new Command()
       identity.memory,
     );
 
-    await createSession(sid, 'cli');
+    if (options.resume) {
+      const existing = await getSession(sid);
+      if (!existing) {
+        console.error(red(`  Session "${sid}" not found.`));
+        Deno.exit(1);
+      }
+      await resumeSession(sid);
+    } else {
+      await createSession(sid, 'cli');
+    }
     const sessionStart = new Date().toISOString();
     await logEvent({
       event_type: 'session_start',

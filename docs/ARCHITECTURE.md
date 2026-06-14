@@ -361,6 +361,8 @@ Client → Server:
 ```json
 { "type": "chat", "message": "...", "sessionId": "sess_..." }
 { "type": "ping" }
+{ "type": "new_session" }
+{ "type": "select_agent", "agentId": "..." }
 ```
 
 Server → Client:
@@ -373,6 +375,8 @@ Server → Client:
 { "type": "error", "error": "..." }
 { "type": "pong" }
 ```
+
+**Session resume**: If the client includes an existing `sessionId` in a `chat` message, the server reopens the per-session database, reactivates the session (sets `status='active'`, clears `closed_at`), and loads previous messages via `loadHistory()` in `agent/loop.ts`. This allows seamless continuation across WebSocket reconnects and page reloads.
 
 ---
 

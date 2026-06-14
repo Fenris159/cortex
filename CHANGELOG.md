@@ -10,6 +10,15 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
+- **Session resume** — sessions can be reopened and continued across WebSocket reconnects, page reloads, and CLI sessions
+  - `resumeSession()` / `deleteSession()` DB functions in `src/db/sessions.ts`
+  - `POST /api/sessions/:id/resume` endpoint to reopen closed sessions
+  - `DELETE /api/sessions/:id` now cleans up per-session DB files and session rows (not just Lens events)
+  - WebSocket resume — existing `sessionId` from client reopens the per-session DB and reactivates the session
+  - CLI `--resume` / `-s` flag to resume an existing session by ID
+  - Web UI "Continue" button on session list items and detail view
+  - Session detail view shows `session_messages` instead of raw Lens events
+  - `restoreSession()` now reopens the session server-side via the resume API
 - **10 new LLM providers** (`src/llm/`):
   - **Google Gemini** (`google.ts`) — native SDK integration with streaming and usage metadata
   - **Mistral AI** (`mistral.ts`) — OpenAI-compatible, uses Mistral's API

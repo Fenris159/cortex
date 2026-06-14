@@ -1,4 +1,5 @@
-import { getCoreDb } from './client.ts';
+import { getCoreDb, getLensDb } from './client.ts';
+import { PATHS } from '../config/paths.ts';
 
 export interface SessionRow {
   id: string;
@@ -29,6 +30,26 @@ export async function createSession(
      VALUES (?, ?, ?, ?, 'active', 0, datetime('now'))`,
     [id, name ?? null, agentId ?? 'default', channel],
   );
+}
+
+export async function resumeSession(id: string): Promise<void> {
+  const db = await getCoreDb();
+  await db.run(
+    `UPDATE sessions SET status = 'active', closed_at = NULL WHERE id = ?`,
+    [id],
+  );
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getCoreDb();
+  const lensDb = await getLensDb();
+  await lensDb.run(`DELETE FROM lens_events WHERE session_id = ?`, [id]);
+  await db.run(`DELETE FROM sessions WHERE id = ?`, [id]);
+  try {
+    await Deno.remove(PATHS.sessionDb(id));
+  } catch {
+    // per-session DB file may not exist
+  }
 }
 
 export async function closeSession(id: string): Promise<void> {
