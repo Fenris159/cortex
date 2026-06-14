@@ -11,6 +11,7 @@ import {
 } from '../agent/manager.ts';
 import { loadConfig, saveConfig } from '../config/config.ts';
 import type { ProviderKind } from '../config/config.ts';
+import { runMigrations } from '../db/migrate.ts';
 
 export const agentCommand = new Command()
   .name('agent')
@@ -195,9 +196,30 @@ export const agentCommand = new Command()
     }),
   )
   .command('import', new Command()
-    .description('Import an agent configuration from a marketplace URL')
-    .arguments('<url:string>')
-    .action(async (_: void, url: string) => {
+    .description('Import an agent configuration from a URL or marketplace reference')
+    .arguments('<source:string>')
+    .action(async (_: void, source: string) => {
+      await runMigrations();
+
+      let url: string;
+      if (source.startsWith('marketplace:')) {
+        const rest = source.slice('marketplace:'.length);
+        const match = rest.match(/^([^/]+)\/agents\/(.+)$/);
+        if (!match) {
+          console.log(red('  Invalid marketplace reference. Use marketplace:<host>/agents/<slug>'));
+          return;
+        }
+        const host = match[1];
+        const slug = match[2];
+        url = `https://${host}/api/marketplace/agents/${slug}/download`;
+        console.log(dim(`  Fetching from ${url}`));
+      } else if (source.startsWith('http://') || source.startsWith('https://')) {
+        url = source;
+      } else {
+        console.log(red('  Invalid source. Use a URL or marketplace:<host>/agents/<slug>'));
+        return;
+      }
+
       const res = await fetch(url);
       if (!res.ok) {
         console.log(red(`  Fetch failed: ${res.status} ${res.statusText}`));
@@ -232,7 +254,7 @@ export const agentCommand = new Command()
           tools: data.tools,
           tags: data.tags,
         });
-        console.log(green(`  ✓ Imported agent "${agent.name}" (${agent.id}) from marketplace`));
+        console.log(green(`  ✓ Imported agent "${agent.name}" (${agent.id})`));
       } catch (e) {
         console.log(red(`  Failed to import agent: ${(e as Error).message}`));
       }

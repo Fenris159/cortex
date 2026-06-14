@@ -14,6 +14,7 @@ import { daemonCommand } from './cli/daemon.ts';
 import { soulCommand } from './cli/soul-cmd.ts';
 import { discordCommand } from './cli/discord-cmd.ts';
 import { pluginsCommand } from './cli/plugins-cmd.ts';
+import { marketplaceCommand } from './cli/marketplace-cmd.ts';
 import { importCommand } from './cli/import-cmd.ts';
 import { agentCommand } from './cli/agent-cmd.ts';
 import { serviceCommand } from './cli/service-cmd.ts';
@@ -38,6 +39,7 @@ const program = new Command()
   .command('soul', soulCommand)
   .command('discord', discordCommand)
   .command('plugins', pluginsCommand)
+  .command('marketplace', marketplaceCommand)
   .command('import', importCommand)
   .command('agent', agentCommand)
   .command('service', serviceCommand)
