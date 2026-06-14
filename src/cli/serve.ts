@@ -9,7 +9,7 @@ async function findServerProcess(
   const out = await pgrep.output();
   if (!out.success) return null;
 
-  const pids = new TextDecoder().decode(out.stdout).trim().split('\n').map(Number).filter(Boolean);
+  const pids = new TextDecoder().decode(out.stdout).trim().split('\n').map(Number).filter((p) => Boolean(p) && p !== Deno.pid);
   for (const pid of pids) {
     try {
       const cmdline = await Deno.readTextFile(`/proc/${pid}/cmdline`);
