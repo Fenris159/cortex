@@ -10,39 +10,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -58,39 +44,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.9.0] — 2026-06-14 · Gap-closure sprint: Memory, IPC, Security, Channels
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -106,39 +78,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.8.0] — 2026-06-14 · Sprint 8: Security (Parallax Model)
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -152,39 +110,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.7.0] — 2026-06-14 · Sprint 7: Reflection + Model Router
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -199,39 +143,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.6.0] — 2026-06-14 · Sprint 6: Channels (HTTP + WebSocket + Web UI)
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -244,39 +174,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.5.0] — 2026-06-14 · Sprint 5: Coding Sandbox
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -290,39 +206,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.4.0] — 2026-06-14 · Sprint 4: Memory v1
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -338,39 +240,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.3.0] — 2026-06-14 · Sprint 3: Tools + Scheduling
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -386,39 +274,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.2.0] — 2026-06-14 · Sprint 2: Sessions + Setup
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command
@@ -432,39 +306,25 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [0.1.0] — 2026-06-14 · Sprint 1: Cortex Lite (initial release)
 
 ### Added
-- **`src/agent/manager.ts`** — Agent Manager: register, update, delete, list, select agents; load per-agent identity (soul/user/memory); resolve tool allow-lists
-- **`src/cli/agent-cmd.ts`** — `cortex agent` CLI command with 6 subcommands:
-  - `list` — list all agents with active indicator
-  - `show <id>` — detailed agent configuration
-  - `create <name>` — create agent with provider, model, tools, tags, soul
-  - `update <id>` — partial agent update
-  - `delete <id>` — remove agent (protected: cannot delete default)
-  - `select <id>` — set active/default agent
-  - `inspect <id>` — view loaded soul/user/memory identity
-- **Agent API endpoints** in `src/server/router.ts`:
-  - `GET /api/agents` — list all agents
-  - `GET /api/agents/current` — get active agent with resolved provider/model
-  - `GET /api/agents/:id` — get agent by ID
-  - `GET /api/agents/:id/identity` — get loaded soul/user/memory
-  - `POST /api/agents` — create agent
-  - `PUT /api/agents/:id` — update agent
-  - `POST /api/agents/:id/select` — set agent as active
-  - `DELETE /api/agents/:id` — delete agent
-- **Agent-aware WebSocket chat** (`src/server/ws.ts`):
-  - `select_agent` and `new_session` message types
-  - Agent-specific provider, model, tools, and identity (soul) loaded per request
-  - Agent resolver fallback chain: per-message `agentId` → session-selected → default
-- **Agent-aware CLI chat** (`src/cli/chat.ts`):
-  - `-a, --agent <id>` flag to select agent for the session
-  - `--list-agents` flag to list agents and exit
-  - Agent-specific identity, tools, provider, and model applied
-- **Web UI Agents page** — full CRUD management page with:
-  - Agent cards showing name, description, provider/model, tool count, tags
-  - Activate/Edit/Delete buttons per agent
-  - New Agent modal with all configuration fields
-  - Chat header agent selector dropdown (auto-hides when only 1 agent)
-  - Real-time agent switching via WebSocket `select_agent` message
+- **`src/agent/sub-agent.ts`** — Sub-agent spawning system: `spawnSubAgent()` spawns a child Deno process, communicates via stdin/stdout JSON-line protocol, streams chunk and done events back as an async iterable
+- **`src/processes/sub-agent-entry.ts`** — Sub-agent process entry point: receives task via stdin, runs `agentTurn` with its own provider/model/tools/identity, streams response chunks and final result to stdout
+- **`src/tools/builtin/sub_agent.ts`** — `sub_agent` tool: agents can delegate independent tasks to sub-agents with configurable agent ID, model, provider, tools, system prompt; runs concurrently and returns full response
+- **`src/services/manager.ts`** — Micro-service registry and lifecycle manager:
+  - `registerService`, `listServices`, `getService`, `updateService`, `deleteService` — CRUD for service definitions in cortex.db
+  - `startService`, `stopService` — spawn/kill service processes with PID tracking
+  - Health monitoring loop with configurable interval
+  - Auto-restart with exponential backoff on crash
+  - `startAutoServices` — boot-time launch of auto-start services
+- **`src/processes/service-entry.ts`** — Service process entry point: runs a persistent agent with HTTP server (if port configured), handles `/chat` and `/health` endpoints
+- **`src/cli/service-cmd.ts`** — `cortex service` CLI command with 7 subcommands: list, show, create, update, delete, start, stop
+- **`src/db/migrations/010_services.sql`** — services table with fields for agent config, port, health check, auto-restart, env vars
+- **Service API endpoints** in `src/server/router.ts`: CRUD + start/stop for services
+- **Web UI Services page** — service cards with status indicator, start/stop buttons, agent/model/tools/port details
+- `sub_agent` tool registered in both WebSocket chat (`src/server/ws.rs`) and CLI chat (`src/cli/chat.ts`)
 
+### Changed
+- **`src/db/migrate.ts`** — registered 010_services.sql migration for cortex.db
+- **`src/main.ts`** — registered `service` command
 ### Changed
 - **`src/config/config.ts`** — added `agents: Record<string, AgentConfig>` and `defaultAgent: string` to `CortexConfig`; `saveConfig()` auto-ensures default agent always exists
 - **`src/main.ts`** — registered `agent` command

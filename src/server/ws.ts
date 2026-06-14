@@ -12,6 +12,7 @@ import type { Tool } from '../tools/types.ts';
 import { fileReadTool } from '../tools/builtin/file_read.ts';
 import { webSearchTool } from '../tools/builtin/web_search.ts';
 import { codeExecTool } from '../tools/builtin/code_exec.ts';
+import { subAgentTool } from '../tools/builtin/sub_agent.ts';
 import { getDefaultAgent, loadAgentIdentity } from '../agent/manager.ts';
 
 type WsMsg =
@@ -160,6 +161,7 @@ export function handleWebSocket(req: Request): Response {
           file_read: fileReadTool,
           web_search: webSearchTool,
           code_exec: codeExecTool,
+          sub_agent: subAgentTool,
         };
         const allowedTools = agent.tools?.length
           ? agent.tools

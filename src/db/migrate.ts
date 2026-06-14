@@ -75,6 +75,7 @@ export async function runMigrations(): Promise<void> {
     { db: coreDb, sqlFile: '007_jobs_v2.sql', label: 'cortex.db (jobs v2)' },
     { db: await getMemoryDb(), sqlFile: '008_memory_embeddings.sql', label: 'memory.db (embeddings)' },
     { db: coreDb, sqlFile: '009_policy.sql', label: 'cortex.db (policy)' },
+    { db: coreDb, sqlFile: '010_services.sql', label: 'cortex.db (services)' },
   ];
 
   for (const { db, sqlFile, label } of targets) {

@@ -227,6 +227,9 @@ const HTML = `<!DOCTYPE html>
     <button class="nav-item" onclick="showPage('agents');closeMobileSidebar()" id="nav-agents">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Agents
     </button>
+    <button class="nav-item" onclick="showPage('services');closeMobileSidebar()" id="nav-services">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><path d="M6 6h.01M6 18h.01"/></svg></span> Services
+    </button>
     <button class="nav-item" onclick="showPage('plugins');closeMobileSidebar()" id="nav-plugins">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span> Plugins
     </button>
@@ -479,6 +482,22 @@ const HTML = `<!DOCTYPE html>
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text3);margin-bottom:12px;opacity:0.4;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <p style="color:var(--text3);font-size:13px;">Loading agents…</p>
       </div>
+    </div>
+  </div>
+
+  <!-- Page: Services -->
+  <div id="page-services" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h1 style="font-size:15px;font-weight:600;">Micro-Services</h1>
+        <p style="font-size:12px;color:var(--text3);margin-top:2px;">Long-running agent processes with health monitoring</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="loadServices()">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="services-content" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:10px;">
+      <p style="color:var(--text3);font-size:13px;">Loading services…</p>
     </div>
   </div>
 
@@ -837,7 +856,7 @@ document.getElementById('chat-input').addEventListener('input', function() {
 });
 
 // ── Navigation ──────────────────────────────────────────────
-const PAGES = ['status','chat','lens','memory','jobs','skills','policies','analytics','sessions','settings','agents','plugins','soul','cron','logs'];
+const PAGES = ['status','chat','lens','memory','jobs','skills','policies','analytics','sessions','settings','agents','services','plugins','soul','cron','logs'];
 function showPage(name) {
   currentPage = name;
   PAGES.forEach(p => {
@@ -1606,6 +1625,80 @@ async function submitAgentForm() {
     }
   } catch (e) {
     document.getElementById('ag-status').textContent = e.message;
+  }
+}
+
+// ── Services ─────────────────────────────────────────────────
+async function loadServices() {
+  const el = document.getElementById('services-content');
+  if (!el) return;
+  el.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;"><div class="skeleton" style="width:200px;height:20px;margin-bottom:10px;"></div><div class="skeleton" style="width:300px;height:14px;"></div></div>';
+  try {
+    const data = await fetch(BASE + '/api/services').then(r => r.json());
+    const services = data.services || [];
+    const runtime = data.runtime || [];
+    const rtMap = new Map(runtime.map(r => [r.id, r]));
+
+    if (!services.length) {
+      el.innerHTML = [
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;">',
+        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text3);margin-bottom:12px;opacity:0.4;"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><path d="M6 6h.01M6 18h.01"/></svg>',
+        '<p style="color:var(--text3);font-size:13px;">No micro-services yet.</p>',
+        '<p style="color:var(--text3);font-size:11px;margin-top:4px;">Use "cortex service create" from the CLI to register one.</p>',
+        '</div>',
+      ].join('');
+      return;
+    }
+
+    el.innerHTML = services.map(s => {
+      const rt = rtMap.get(s.id);
+      const isRunning = rt && rt.running;
+      const statusColor = isRunning ? '#4ade80' : s.status === 'failed' ? '#f87171' : 'var(--text3)';
+      const statusDot = isRunning ? '●' : '○';
+      const uptimeHtml = rt && rt.uptime
+        ? '<span style="font-size:11px;color:var(--text3);">' + rt.uptime + 's up</span>'
+        : '';
+      return [
+        '<div class="card">',
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">',
+        '<div style="flex:1;min-width:0;">',
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">',
+        '<span style="color:' + statusColor + ';">' + statusDot + '</span>',
+        '<span style="font-size:14px;font-weight:600;">' + esc(s.name) + '</span>',
+        '<span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text2);font-size:10px;">' + esc(s.id) + '</span>',
+        '<span class="badge" style="background:rgba(255,255,255,0.06);color:' + statusColor + ';">' + s.status + '</span>',
+        '</div>',
+        s.description ? '<p style="font-size:12px;color:var(--text2);margin-bottom:4px;">' + esc(s.description) + '</p>' : '',
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text3);">',
+        '<span>Agent: ' + esc(s.agentId) + '</span>',
+        s.port > 0 ? '<span>Port: ' + s.port + '</span>' : '',
+        s.model ? '<span>Model: ' + esc(s.model) + '</span>' : '',
+        s.tools ? '<span>Tools: ' + esc(s.tools) + '</span>' : '',
+        s.autoStart ? '<span>Auto-start</span>' : '',
+        uptimeHtml,
+        '</div>',
+        '</div>',
+        '<div style="display:flex;gap:6px;flex-shrink:0;">',
+        isRunning
+          ? '<button class="btn btn-ghost" style="font-size:12px;padding:4px 12px;" onclick="serviceAction(\'' + s.id + '\',\'stop\')">Stop</button>'
+          : '<button class="btn btn-primary" style="font-size:12px;padding:4px 12px;" onclick="serviceAction(\'' + s.id + '\',\'start\')">Start</button>',
+        '</div>',
+        '</div>',
+        '</div>',
+      ].join('');
+    }).join('\n');
+  } catch (e) {
+    el.innerHTML = '<p style="color:var(--text3);font-size:13px;">Error: ' + e.message + '</p>';
+  }
+}
+
+async function serviceAction(id, action) {
+  const res = await fetch(BASE + '/api/services/' + encodeURIComponent(id) + '/' + action, { method: 'POST' });
+  if (res.ok) {
+    toast('Service ' + action + 'ed', 'success');
+    loadServices();
+  } else {
+    toast('Failed to ' + action + ' service', 'error');
   }
 }
 

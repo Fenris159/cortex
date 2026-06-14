@@ -24,6 +24,16 @@ import {
   deleteAgent,
   selectAgent,
 } from '../agent/manager.ts';
+import {
+  registerService,
+  listServices,
+  getService,
+  updateService,
+  deleteService,
+  startService,
+  stopService,
+  getRuntimeStatus,
+} from '../services/manager.ts';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -493,6 +503,70 @@ export async function handleApi(req: Request): Promise<Response | null> {
     } catch (e) {
       return err((e as Error).message, 400);
     }
+  }
+
+  // ── Service Manager ─────────────────────────────────────
+
+  // GET /api/services
+  if (req.method === 'GET' && path === '/api/services') {
+    const services = await listServices();
+    const runtime = await getRuntimeStatus();
+    return json({ services, runtime });
+  }
+
+  // GET /api/services/:id
+  const svcGetMatch = path.match(/^\/api\/services\/([^/]+)$/);
+  if (req.method === 'GET' && svcGetMatch) {
+    const svc = await getService(svcGetMatch[1]);
+    if (!svc) return notFound('Service not found');
+    const rt = (await getRuntimeStatus()).find(r => r.id === svcGetMatch[1]);
+    return json({ ...svc, runtime: rt ?? null });
+  }
+
+  // POST /api/services — create
+  if (req.method === 'POST' && path === '/api/services') {
+    const body = await req.json();
+    try {
+      const id = await registerService(body);
+      return json({ ok: true, id }, 201);
+    } catch (e) {
+      return err((e as Error).message, 400);
+    }
+  }
+
+  // PUT /api/services/:id — update
+  if (req.method === 'PUT' && svcGetMatch) {
+    const body = await req.json();
+    try {
+      await updateService(svcGetMatch[1], body);
+      return json({ ok: true });
+    } catch (e) {
+      return err((e as Error).message, 404);
+    }
+  }
+
+  // POST /api/services/:id/start
+  const svcStartMatch = path.match(/^\/api\/services\/([^/]+)\/start$/);
+  if (req.method === 'POST' && svcStartMatch) {
+    try {
+      await startService(svcStartMatch[1]);
+      return json({ ok: true });
+    } catch (e) {
+      return err((e as Error).message, 400);
+    }
+  }
+
+  // POST /api/services/:id/stop
+  const svcStopMatch = path.match(/^\/api\/services\/([^/]+)\/stop$/);
+  if (req.method === 'POST' && svcStopMatch) {
+    await stopService(svcStopMatch[1]);
+    return json({ ok: true });
+  }
+
+  // DELETE /api/services/:id
+  if (req.method === 'DELETE' && svcGetMatch) {
+    await deleteService(svcGetMatch[1]);
+    return json({ ok: true });
   }
 
   // ── Logs ─────────────────────────────────────────────────
