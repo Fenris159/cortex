@@ -166,6 +166,18 @@ const HTML = `<!DOCTYPE html>
     <button class="nav-item" onclick="showPage('settings')" id="nav-settings">
       <span class="icon">⚙</span> Settings
     </button>
+    <button class="nav-item" onclick="showPage('plugins')" id="nav-plugins">
+      <span class="icon">🧩</span> Plugins
+    </button>
+    <button class="nav-item" onclick="showPage('soul')" id="nav-soul">
+      <span class="icon">✦</span> Soul
+    </button>
+    <button class="nav-item" onclick="showPage('cron')" id="nav-cron">
+      <span class="icon">🕐</span> Cron
+    </button>
+    <button class="nav-item" onclick="showPage('logs')" id="nav-logs">
+      <span class="icon">📋</span> Logs
+    </button>
 
     <div class="divider" style="margin:8px 4px;"></div>
 
@@ -370,6 +382,115 @@ const HTML = `<!DOCTYPE html>
     <div id="settings-content" style="flex:1;overflow-y:auto;padding:20px 24px;"><p style="color:var(--text3);font-size:13px;">Loading…</p></div>
   </div>
 
+  <!-- Page: Plugins -->
+  <div id="page-plugins" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div><h1 style="font-size:15px;font-weight:600;">Plugins</h1><p style="font-size:12px;color:var(--text3);margin-top:2px;">ESM, MCP, and WASM plugins</p></div>
+      <button class="btn btn-ghost" onclick="showInstallModal()">+ Install Plugin</button>
+    </div>
+    <div id="plugins-list" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;"></div>
+    <!-- Install modal -->
+    <div id="plugin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center;">
+      <div class="card" style="width:480px;">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px;">Install Plugin</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Name *</label><input class="inp" id="pm-name" placeholder="my-plugin" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Version</label><input class="inp" id="pm-version" value="1.0.0" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Kind</label><select class="inp" id="pm-kind"><option value="esm">ESM</option><option value="mcp">MCP</option><option value="wasm">WASM</option></select></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Entry Point / URL *</label><input class="inp" id="pm-entry" placeholder="https://… or file:///…" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Description</label><input class="inp" id="pm-desc" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Author</label><input class="inp" id="pm-author" /></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="btn btn-primary" onclick="submitInstallPlugin()">Install</button>
+          <button class="btn btn-ghost" onclick="hideInstallModal()">Cancel</button>
+          <span id="pm-status" style="font-size:12px;align-self:center;margin-left:4px;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Soul -->
+  <div id="page-soul" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div><h1 style="font-size:15px;font-weight:600;">Soul / Identity</h1><p style="font-size:12px;color:var(--text3);margin-top:2px;">SOUL.md · USER.md · MEMORY.md — injected into every system prompt</p></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="soul-file-select" class="inp" style="width:140px;" onchange="loadSoulFile()">
+          <option value="soul">SOUL.md</option>
+          <option value="user">USER.md</option>
+          <option value="memory">MEMORY.md</option>
+        </select>
+        <button class="btn btn-primary" onclick="saveSoulFile()">Save</button>
+        <span id="soul-saved" style="font-size:12px;color:#4ade80;display:none;">✓ Saved</span>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div id="soul-file-path" style="font-size:11px;color:var(--text3);padding:6px 24px;background:var(--bg2);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;"></div>
+      <textarea id="soul-editor" style="flex:1;background:var(--bg3);border:none;outline:none;padding:20px 24px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;resize:none;"></textarea>
+      <div style="border-top:1px solid var(--border);padding:12px 24px;background:var(--bg2);display:flex;gap:8px;align-items:center;">
+        <input class="inp" id="memory-note" placeholder="Append a note to MEMORY.md…" style="flex:1;" />
+        <button class="btn btn-ghost" onclick="appendMemoryNote()">Append Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Cron -->
+  <div id="page-cron" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div><h1 style="font-size:15px;font-weight:600;">Cron Jobs</h1><p style="font-size:12px;color:var(--text3);margin-top:2px;">Create, trigger, cancel, and delete scheduled jobs</p></div>
+      <button class="btn btn-ghost" onclick="showCronModal()">+ New Job</button>
+    </div>
+    <div id="cron-list" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;"></div>
+    <!-- Cron modal -->
+    <div id="cron-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center;">
+      <div class="card" style="width:480px;">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px;">New Cron Job</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Name *</label><input class="inp" id="cj-name" placeholder="daily-summary" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Kind</label>
+            <select class="inp" id="cj-kind" onchange="toggleCronFields()">
+              <option value="cron">Cron (schedule expression)</option>
+              <option value="interval">Interval</option>
+              <option value="once">Once (immediate)</option>
+            </select>
+          </div>
+          <div id="cj-schedule-row"><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Schedule <span style="color:var(--text3);">(e.g. <code style="font-size:11px;">0 9 * * *</code>)</span></label><input class="inp" id="cj-schedule" placeholder="0 9 * * *" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Command *</label><input class="inp" id="cj-command" placeholder="cortex:consolidate:daily" /></div>
+          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Max Attempts</label><input class="inp" id="cj-max" type="number" value="3" style="width:80px;" /></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text3);">Preset commands: <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:hourly</code> · <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:daily</code> · <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:weekly</code></div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="btn btn-primary" onclick="submitCronJob()">Create</button>
+          <button class="btn btn-ghost" onclick="hideCronModal()">Cancel</button>
+          <span id="cj-status" style="font-size:12px;align-self:center;margin-left:4px;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Logs -->
+  <div id="page-logs" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;"><h1 style="font-size:15px;font-weight:600;">Logs</h1><p style="font-size:12px;color:var(--text3);margin-top:2px;">Lens event log — filterable, auto-refresh</p></div>
+      <select id="log-level" class="inp" style="width:130px;" onchange="loadLogs()">
+        <option value="">All levels</option>
+        <option value="error">Errors only</option>
+        <option value="warning">Warnings+</option>
+      </select>
+      <select id="log-lines" class="inp" style="width:100px;" onchange="loadLogs()">
+        <option value="50">50 lines</option>
+        <option value="100" selected>100 lines</option>
+        <option value="200">200 lines</option>
+        <option value="500">500 lines</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
+        <input type="checkbox" id="log-autorefresh" onchange="toggleLogAutoRefresh()" style="accent-color:var(--accent);"> Auto
+      </label>
+      <button class="btn btn-ghost" onclick="loadLogs()">↻</button>
+    </div>
+    <div id="logs-content" style="flex:1;overflow-y:auto;padding:0;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;"></div>
+  </div>
+
 </main>
 </div>
 
@@ -490,7 +611,7 @@ document.getElementById('chat-input').addEventListener('input', function() {
 });
 
 // ── Navigation ──────────────────────────────────────────────
-const PAGES = ['status','chat','lens','memory','jobs','skills','policies','analytics','sessions','settings'];
+const PAGES = ['status','chat','lens','memory','jobs','skills','policies','analytics','sessions','settings','plugins','soul','cron','logs'];
 function showPage(name) {
   currentPage = name;
   PAGES.forEach(p => {
@@ -509,6 +630,10 @@ function showPage(name) {
   if (name === 'analytics') loadAnalytics();
   if (name === 'sessions') loadSessionsList();
   if (name === 'settings') loadSettings();
+  if (name === 'plugins') loadPlugins();
+  if (name === 'soul') loadSoulFile();
+  if (name === 'cron') loadCronJobs();
+  if (name === 'logs') loadLogs();
 }
 
 // ── Sessions sidebar ────────────────────────────────────────
@@ -1081,6 +1206,193 @@ async function saveProvider(kind) {
   if (baseUrl) body.baseUrl = baseUrl;
   await fetch(BASE + '/api/config/provider', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
   loadSettings();
+}
+
+// ── Plugins ──────────────────────────────────────────────────
+async function loadPlugins() {
+  const plugins = await fetch(BASE + '/api/plugins').then(r => r.json()).catch(() => []);
+  const el = document.getElementById('plugins-list');
+  if (!el) return;
+  if (!plugins.length) { el.innerHTML = '<p style="color:var(--text3);font-size:13px;">No plugins installed. Click "+ Install Plugin" to add one.</p>'; return; }
+  el.innerHTML = plugins.map(p => {
+    const caps = JSON.parse(p.capabilities || '[]');
+    return \`<div class="card" style="display:flex;align-items:flex-start;gap:14px;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;">\${esc(p.name)}</span>
+          <span class="badge" style="background:rgba(99,102,241,0.12);color:var(--accent2);">\${esc(p.kind)}</span>
+          <span class="badge" style="background:rgba(99,102,241,0.12);color:var(--accent2);">v\${esc(p.version)}</span>
+          <span class="badge" style="background:\${p.enabled?'rgba(34,197,94,0.1)':'rgba(255,255,255,0.05)'};color:\${p.enabled?'#4ade80':'var(--text3)'};">\${p.enabled?'enabled':'disabled'}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">\${esc(p.description ?? '')}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\${esc(p.entry_point)}</div>
+        \${caps.length ? \`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">\${caps.map(c => \`<span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text3);">\${esc(c)}</span>\`).join('')}</div>\` : ''}
+        \${p.author ? \`<div style="font-size:11px;color:var(--text3);margin-top:4px;">by \${esc(p.author)}\${p.homepage?' · <a href="'+esc(p.homepage)+'" target="_blank" style="color:var(--accent2);">homepage</a>':''}</div>\` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        \${p.enabled
+          ? \`<button class="btn btn-ghost" style="font-size:12px;" onclick="togglePlugin('\${p.id}', false)">Disable</button>\`
+          : \`<button class="btn btn-ghost" style="font-size:12px;" onclick="togglePlugin('\${p.id}', true)">Enable</button>\`}
+        <button class="btn" style="font-size:12px;background:rgba(239,68,68,0.1);color:#f87171;" onclick="deletePlugin('\${p.id}')">Remove</button>
+      </div>
+    </div>\`;
+  }).join('');
+}
+
+function showInstallModal() {
+  document.getElementById('plugin-modal').style.display = 'flex';
+}
+function hideInstallModal() {
+  document.getElementById('plugin-modal').style.display = 'none';
+}
+async function submitInstallPlugin() {
+  const name = document.getElementById('pm-name').value.trim();
+  const entry = document.getElementById('pm-entry').value.trim();
+  if (!name || !entry) { document.getElementById('pm-status').textContent = 'Name and Entry Point required.'; return; }
+  const body = {
+    id: '', name, version: document.getElementById('pm-version').value || '1.0.0',
+    description: document.getElementById('pm-desc').value,
+    kind: document.getElementById('pm-kind').value,
+    entryPoint: entry, capabilities: [],
+    author: document.getElementById('pm-author').value || undefined,
+  };
+  const res = await fetch(BASE + '/api/plugins/install', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) { hideInstallModal(); loadPlugins(); }
+  else { document.getElementById('pm-status').textContent = 'Install failed.'; }
+}
+async function togglePlugin(id, enable) {
+  await fetch(\`\${BASE}/api/plugins/\${id}/\${enable?'enable':'disable'}\`, { method: 'POST' });
+  loadPlugins();
+}
+async function deletePlugin(id) {
+  if (!confirm('Remove this plugin?')) return;
+  await fetch(\`\${BASE}/api/plugins/\${id}\`, { method: 'DELETE' });
+  loadPlugins();
+}
+
+// ── Soul ──────────────────────────────────────────────────────
+async function loadSoulFile() {
+  const key = document.getElementById('soul-file-select')?.value ?? 'soul';
+  const data = await fetch(\`\${BASE}/api/soul/\${key}\`).then(r => r.json()).catch(() => null);
+  if (!data) return;
+  document.getElementById('soul-editor').value = data.content;
+  document.getElementById('soul-file-path').textContent = data.path;
+}
+async function saveSoulFile() {
+  const key = document.getElementById('soul-file-select').value;
+  const content = document.getElementById('soul-editor').value;
+  await fetch(\`\${BASE}/api/soul/\${key}\`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ content }) });
+  const s = document.getElementById('soul-saved');
+  s.style.display = 'inline'; setTimeout(() => s.style.display = 'none', 2000);
+}
+async function appendMemoryNote() {
+  const note = document.getElementById('memory-note').value.trim();
+  if (!note) return;
+  await fetch(BASE + '/api/soul/memory/append', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ note }) });
+  document.getElementById('memory-note').value = '';
+  if (document.getElementById('soul-file-select').value === 'memory') loadSoulFile();
+}
+
+// ── Cron ──────────────────────────────────────────────────────
+async function loadCronJobs() {
+  const jobs = await fetch(BASE + '/api/jobs').then(r => r.json()).catch(() => []);
+  const el = document.getElementById('cron-list');
+  if (!el) return;
+  if (!jobs.length) { el.innerHTML = '<p style="color:var(--text3);font-size:13px;">No jobs yet. Click "+ New Job" to schedule one.</p>'; return; }
+  const statusColor = { pending:'#fbbf24', running:'#38bdf8', completed:'#4ade80', failed:'#f87171', cancelled:'var(--text3)' };
+  el.innerHTML = jobs.map(j => \`
+    <div class="card" style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;">\${esc(j.name)}</span>
+          <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text2);">\${esc(j.kind)}</span>
+          <span class="badge" style="background:rgba(0,0,0,0.2);color:\${statusColor[j.status]??'var(--text3)'};">\${j.status}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:4px;">\${esc(j.command)}\${j.schedule?' · '+esc(j.schedule):''}</div>
+        <div style="font-size:11px;color:var(--text3);">
+          Attempts: \${j.attempts}/\${j.max_attempts}
+          \${j.last_run_at?' · Last: '+new Date(j.last_run_at).toLocaleString():''}
+          \${j.next_run_at?' · Next: '+new Date(j.next_run_at).toLocaleString():''}
+        </div>
+        \${j.last_error ? \`<div style="font-size:11px;color:#f87171;margin-top:3px;">\${esc(j.last_error)}</div>\` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-ghost" style="font-size:12px;" onclick="triggerJob('\${j.id}')">▶ Trigger</button>
+        <button class="btn btn-ghost" style="font-size:12px;" onclick="cancelJobUI('\${j.id}')">■ Cancel</button>
+        <button class="btn" style="font-size:12px;background:rgba(239,68,68,0.1);color:#f87171;" onclick="deleteJobUI('\${j.id}')">✕</button>
+      </div>
+    </div>
+  \`).join('');
+}
+function showCronModal() { document.getElementById('cron-modal').style.display = 'flex'; }
+function hideCronModal() { document.getElementById('cron-modal').style.display = 'none'; }
+function toggleCronFields() {
+  const kind = document.getElementById('cj-kind').value;
+  document.getElementById('cj-schedule-row').style.display = kind === 'once' ? 'none' : 'block';
+}
+async function submitCronJob() {
+  const name = document.getElementById('cj-name').value.trim();
+  const command = document.getElementById('cj-command').value.trim();
+  if (!name || !command) { document.getElementById('cj-status').textContent = 'Name and Command required.'; return; }
+  const body = {
+    name, command,
+    kind: document.getElementById('cj-kind').value,
+    schedule: document.getElementById('cj-schedule').value || undefined,
+    maxAttempts: Number(document.getElementById('cj-max').value) || 3,
+  };
+  const res = await fetch(BASE + '/api/jobs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) { hideCronModal(); loadCronJobs(); }
+  else { document.getElementById('cj-status').textContent = 'Create failed.'; }
+}
+async function triggerJob(id) {
+  await fetch(\`\${BASE}/api/jobs/\${id}/trigger\`, { method: 'POST' });
+  loadCronJobs();
+}
+async function cancelJobUI(id) {
+  await fetch(\`\${BASE}/api/jobs/\${id}/cancel\`, { method: 'POST' });
+  loadCronJobs();
+}
+async function deleteJobUI(id) {
+  if (!confirm('Delete this job?')) return;
+  await fetch(\`\${BASE}/api/jobs/\${id}\`, { method: 'DELETE' });
+  loadCronJobs();
+}
+
+// ── Logs ──────────────────────────────────────────────────────
+let logAutoRefreshTimer = null;
+
+async function loadLogs() {
+  const level = document.getElementById('log-level')?.value ?? '';
+  const lines = document.getElementById('log-lines')?.value ?? '100';
+  const rows = await fetch(\`\${BASE}/api/logs?lines=\${lines}&level=\${level}\`).then(r => r.json()).catch(() => []);
+  const el = document.getElementById('logs-content');
+  if (!el) return;
+  if (!rows.length) { el.innerHTML = '<p style="color:var(--text3);font-size:12px;padding:16px 24px;">No log entries found.</p>'; return; }
+  const typeColor = {
+    error:'#f87171', warning:'#fbbf24', tool_error:'#f87171', tool_rejected:'#fbbf24',
+    llm_call:'#818cf8', tool_call:'#fde68a', session_start:'#4ade80', session_end:'#9090a8',
+    memory_write:'#38bdf8', memory_read:'#38bdf8', policy_check:'#fb923c',
+  };
+  el.innerHTML = rows.map(r => {
+    const color = typeColor[r.event_type] ?? 'var(--text3)';
+    const ts = new Date(r.started_at).toLocaleTimeString('en-GB', { hour12: false });
+    const date = new Date(r.started_at).toLocaleDateString('en-GB');
+    const msg = r.summary ?? r.action ?? '';
+    const errPart = r.error ? \` <span style="color:#f87171;">⚠ \${esc(r.error)}</span>\` : '';
+    return \`<div style="display:flex;gap:0;padding:3px 16px;border-bottom:1px solid rgba(255,255,255,0.03);hover:background:rgba(255,255,255,0.02);">
+      <span style="color:var(--text3);min-width:90px;">\${date}</span>
+      <span style="color:var(--text3);min-width:70px;">\${ts}</span>
+      <span style="color:\${color};min-width:160px;">\${esc(r.event_type)}</span>
+      <span style="color:var(--text2);min-width:90px;">\${esc(r.actor)}</span>
+      <span style="color:var(--text);flex:1;">\${esc(msg)}\${errPart}</span>
+    </div>\`;
+  }).join('');
+}
+
+function toggleLogAutoRefresh() {
+  const on = document.getElementById('log-autorefresh').checked;
+  if (on) { logAutoRefreshTimer = setInterval(loadLogs, 5000); }
+  else { clearInterval(logAutoRefreshTimer); logAutoRefreshTimer = null; }
 }
 
 // ── Boot ────────────────────────────────────────────────────

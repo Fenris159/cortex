@@ -10,6 +10,12 @@ import { listSkills } from '../memory/skills.ts';
 import { listPolicies } from '../security/policy.ts';
 import { getMemoryDb } from '../db/client.ts';
 import { pingProcess, VALIDATOR_SOCK, EXECUTOR_SOCK, SCHEDULER_SOCK } from '../ipc/transport.ts';
+import { listPlugins, installPlugin, enablePlugin, disablePlugin, removePlugin } from '../plugins/registry.ts';
+import type { PluginManifest } from '../plugins/registry.ts';
+import { createJob, cancelJob } from '../scheduler/scheduler.ts';
+import type { CreateJobOptions } from '../scheduler/scheduler.ts';
+import { PATHS } from '../config/paths.ts';
+import { exists } from '@std/fs';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -288,6 +294,135 @@ export async function handleApi(req: Request): Promise<Response | null> {
     const db = await getLensDb();
     await db.run(`DELETE FROM lens_events WHERE session_id = ?`, [delSessionMatch[1]]);
     return json({ ok: true });
+  }
+
+  // ── Plugins ──────────────────────────────────────────────
+
+  // GET /api/plugins
+  if (req.method === 'GET' && path === '/api/plugins') {
+    return json(await listPlugins());
+  }
+
+  // POST /api/plugins/install
+  if (req.method === 'POST' && path === '/api/plugins/install') {
+    const body = await req.json() as PluginManifest;
+    await installPlugin(body);
+    return json({ ok: true });
+  }
+
+  // POST /api/plugins/:id/enable
+  const pluginEnableMatch = path.match(/^\/api\/plugins\/([^/]+)\/enable$/);
+  if (req.method === 'POST' && pluginEnableMatch) {
+    await enablePlugin(pluginEnableMatch[1]);
+    return json({ ok: true });
+  }
+
+  // POST /api/plugins/:id/disable
+  const pluginDisableMatch = path.match(/^\/api\/plugins\/([^/]+)\/disable$/);
+  if (req.method === 'POST' && pluginDisableMatch) {
+    await disablePlugin(pluginDisableMatch[1]);
+    return json({ ok: true });
+  }
+
+  // DELETE /api/plugins/:id
+  const pluginDeleteMatch = path.match(/^\/api\/plugins\/([^/]+)$/);
+  if (req.method === 'DELETE' && pluginDeleteMatch) {
+    await removePlugin(pluginDeleteMatch[1]);
+    return json({ ok: true });
+  }
+
+  // ── Jobs CRUD ────────────────────────────────────────────
+
+  // POST /api/jobs
+  if (req.method === 'POST' && path === '/api/jobs') {
+    const body = await req.json() as CreateJobOptions & { runAt?: string };
+    const opts: CreateJobOptions = {
+      name: body.name,
+      kind: body.kind ?? 'cron',
+      schedule: body.schedule,
+      command: body.command,
+      maxAttempts: body.maxAttempts ?? 3,
+      runAt: body.runAt ? new Date(body.runAt) : undefined,
+    };
+    const id = await createJob(opts);
+    return json({ ok: true, id });
+  }
+
+  // POST /api/jobs/:id/cancel
+  const jobCancelMatch = path.match(/^\/api\/jobs\/([^/]+)\/cancel$/);
+  if (req.method === 'POST' && jobCancelMatch) {
+    await cancelJob(jobCancelMatch[1]);
+    return json({ ok: true });
+  }
+
+  // POST /api/jobs/:id/trigger — re-enqueue by resetting to pending
+  const jobTriggerMatch = path.match(/^\/api\/jobs\/([^/]+)\/trigger$/);
+  if (req.method === 'POST' && jobTriggerMatch) {
+    const db = await (await import('../db/client.ts')).getCoreDb();
+    await db.run(
+      `UPDATE jobs SET status='pending', next_run_at=datetime('now') WHERE id=?`,
+      [jobTriggerMatch[1]],
+    );
+    return json({ ok: true });
+  }
+
+  // DELETE /api/jobs/:id
+  const jobDeleteMatch = path.match(/^\/api\/jobs\/([^/]+)$/);
+  if (req.method === 'DELETE' && jobDeleteMatch) {
+    const db = await (await import('../db/client.ts')).getCoreDb();
+    await db.run(`DELETE FROM jobs WHERE id=?`, [jobDeleteMatch[1]]);
+    return json({ ok: true });
+  }
+
+  // ── Soul files ───────────────────────────────────────────
+
+  // GET /api/soul/:file  (soul | user | memory)
+  const soulGetMatch = path.match(/^\/api\/soul\/(soul|user|memory)$/);
+  if (req.method === 'GET' && soulGetMatch) {
+    const fileKey = soulGetMatch[1] as 'soul' | 'user' | 'memory';
+    const filePath = fileKey === 'soul' ? PATHS.soulFile : fileKey === 'user' ? PATHS.userFile : PATHS.memoryFile;
+    const content = (await exists(filePath)) ? await Deno.readTextFile(filePath) : '';
+    return json({ content, path: filePath });
+  }
+
+  // PUT /api/soul/:file
+  const soulPutMatch = path.match(/^\/api\/soul\/(soul|user|memory)$/);
+  if (req.method === 'PUT' && soulPutMatch) {
+    const fileKey = soulPutMatch[1] as 'soul' | 'user' | 'memory';
+    const filePath = fileKey === 'soul' ? PATHS.soulFile : fileKey === 'user' ? PATHS.userFile : PATHS.memoryFile;
+    const { content } = await req.json() as { content: string };
+    await Deno.mkdir(PATHS.configDir, { recursive: true });
+    await Deno.writeTextFile(filePath, content);
+    return json({ ok: true });
+  }
+
+  // POST /api/soul/memory/append
+  if (req.method === 'POST' && path === '/api/soul/memory/append') {
+    const { note } = await req.json() as { note: string };
+    const ts = new Date().toISOString();
+    await Deno.mkdir(PATHS.configDir, { recursive: true });
+    await Deno.writeTextFile(PATHS.memoryFile, `\n---\n[${ts}]\n${note}\n`, { append: true });
+    return json({ ok: true });
+  }
+
+  // ── Logs ─────────────────────────────────────────────────
+
+  // GET /api/logs?lines=100&level=
+  if (req.method === 'GET' && path === '/api/logs') {
+    const lines = Number(url.searchParams.get('lines') ?? 100);
+    const level = url.searchParams.get('level') ?? '';
+    const db = await getLensDb();
+    let query = `SELECT started_at, event_type, actor, action, summary, error FROM lens_events`;
+    const params: string[] = [];
+    if (level === 'error') {
+      query += ` WHERE event_type IN ('error','tool_error','tool_rejected','intent_rejected')`;
+    } else if (level === 'warning') {
+      query += ` WHERE event_type IN ('warning','error','tool_error')`;
+    }
+    query += ` ORDER BY started_at DESC LIMIT ?`;
+    params.push(String(lines));
+    const rows = await db.all(query, params);
+    return json(rows);
   }
 
   return null;
