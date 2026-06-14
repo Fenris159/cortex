@@ -157,12 +157,12 @@ export async function handleApi(req: Request): Promise<Response | null> {
   if (req.method === 'GET' && msgsMatch) {
     const session = await getSession(msgsMatch[1]);
     if (!session) return notFound('Session not found');
-    const db = await getLensDb();
-    const msgs = await db.all(
-      `SELECT * FROM lens_events WHERE session_id = ? AND event_type IN ('user_message','agent_response') ORDER BY started_at ASC`,
-      [msgsMatch[1]],
+    const { initSessionDb } = await import('../db/migrate.ts');
+    const db = await initSessionDb(msgsMatch[1]);
+    const rows = await db.all<{ role: string; content: string; token_count: number; created_at: string }>(
+      `SELECT role, content, token_count, created_at FROM session_messages ORDER BY id ASC`,
     );
-    return json(msgs);
+    return json(rows);
   }
 
   // POST /api/memory/add

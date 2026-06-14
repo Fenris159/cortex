@@ -845,6 +845,7 @@ function newChat() {
   agentRaw = '';
   document.getElementById('chat-session-id').textContent = '';
   document.getElementById('thinking-bar').style.display = 'none';
+  try { localStorage.removeItem('cortex_session_id'); } catch {}
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'new_session' }));
   }
@@ -886,6 +887,39 @@ function switchChatAgent(agentId) {
 marked.setOptions({ breaks: true, gfm: true });
 function md(text) { return marked.parse(text || ''); }
 
+// ── Session persistence ──────────────────────────────────
+function saveSession() {
+  try {
+    if (sessionId) localStorage.setItem('cortex_session_id', sessionId);
+    if (currentAgentId) localStorage.setItem('cortex_agent_id', currentAgentId);
+  } catch {}
+}
+
+async function restoreSession() {
+  try {
+    const sid = localStorage.getItem('cortex_session_id');
+    const aid = localStorage.getItem('cortex_agent_id');
+    if (sid && aid) {
+      sessionId = sid;
+      currentAgentId = aid;
+      document.getElementById('chat-session-id').textContent = sid.slice(-12);
+      const res = await fetch(BASE + '/api/sessions/' + encodeURIComponent(sid) + '/messages');
+      if (!res.ok) return;
+      const msgs = await res.json();
+      for (const m of msgs) {
+        if (m.role === 'user') {
+          appendBubble('user', m.content);
+        } else if (m.role === 'assistant') {
+          const b = appendBubble('agent', m.content);
+          b.innerHTML = md(m.content);
+          if (m.token_count) appendMeta(0, m.token_count, 0, 0);
+        }
+      }
+      scrollChat();
+    }
+  } catch {}
+}
+
 // ── WebSocket ───────────────────────────────────────────────
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -901,6 +935,7 @@ function connect() {
         if (msg.agentName) {
           document.getElementById('chat-agent-name').textContent = msg.agentName;
         }
+        saveSession();
         loadSessionsSidebar();
         break;
       case 'agent_selected':
@@ -927,6 +962,7 @@ function connect() {
         document.getElementById('thinking-bar').style.display = 'none';
         agentBubble = null;
         appendMeta(msg.tokensIn, msg.tokensOut, msg.costUsd, msg.durationMs);
+        saveSession();
         if (currentPage === 'lens') loadLens();
         break;
       case 'error':
@@ -2495,6 +2531,7 @@ async function editorNewFolder() {
 connect();
 loadSessionsSidebar();
 loadDaemonStatus();
+restoreSession();
 loadAgentSelector();
 setInterval(loadDaemonStatus, 15_000);
 setInterval(loadSessionsSidebar, 30_000);
