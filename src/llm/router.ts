@@ -10,6 +10,7 @@ import { XAIProvider } from './xai.ts';
 import { TogetherProvider } from './together.ts';
 import { BedrockProvider } from './bedrock.ts';
 import { CohereProvider } from './cohere.ts';
+import { KiloProvider } from './kilo.ts';
 import type { LLMProvider, CompletionOptions, CompletionResult, CompletionChunk } from './types.ts';
 import type { CortexConfig, ProviderKind, ProviderConfig } from '../config/config.ts';
 
@@ -62,6 +63,10 @@ function createProvider(kind: ProviderKind, cfg: ProviderConfig): LLMProvider {
     case 'cohere':
       if (!cfg.apiKey) throw new Error('Cohere API key is required.');
       return new CohereProvider(cfg.apiKey);
+
+    case 'kilo':
+      if (!cfg.apiKey) throw new Error('Kilo API key is required.');
+      return new KiloProvider(cfg.apiKey);
 
     default:
       throw new Error(`Unknown provider kind: ${kind}`);

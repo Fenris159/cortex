@@ -13,7 +13,8 @@ export type ProviderKind =
   | 'xai'
   | 'together'
   | 'bedrock'
-  | 'cohere';
+  | 'cohere'
+  | 'kilo';
 
 export interface ProviderConfig {
   kind: ProviderKind;
@@ -99,6 +100,7 @@ const DEFAULT_CONFIG: CortexConfig = {
     together: undefined,
     bedrock: undefined,
     cohere: undefined,
+    kilo: undefined,
   },
   agent: {
     name: 'Cortex',

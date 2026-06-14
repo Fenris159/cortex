@@ -24,6 +24,7 @@ export async function runSetupWizard(config: CortexConfig): Promise<CortexConfig
       { name: 'Together AI', value: 'together' },
       { name: 'AWS Bedrock', value: 'bedrock' },
       { name: 'Cohere', value: 'cohere' },
+      { name: 'Kilo (AI Gateway)', value: 'kilo' },
       { name: 'Ollama (local / self-hosted)', value: 'ollama' },
     ],
   })) as ProviderKind;
@@ -117,6 +118,13 @@ export async function runSetupWizard(config: CortexConfig): Promise<CortexConfig
       default: 'command-r-plus',
     });
     updated.providers.cohere = { kind: 'cohere', model, apiKey };
+  } else if (providerChoice === 'kilo') {
+    const apiKey = await Secret.prompt('Kilo API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'kilo/sonnet',
+    });
+    updated.providers.kilo = { kind: 'kilo', model, apiKey };
   } else if (providerChoice === 'ollama') {
     const baseUrl = await Input.prompt({
       message: 'Ollama base URL:',

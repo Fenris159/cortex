@@ -16,6 +16,7 @@ const PROVIDER_OPTIONS = [
   { kind: 'together', label: 'Together AI' },
   { kind: 'bedrock', label: 'AWS Bedrock' },
   { kind: 'cohere', label: 'Cohere' },
+  { kind: 'kilo', label: 'Kilo (AI Gateway)' },
   { kind: 'ollama', label: 'Ollama' },
 ];
 const PROVIDER_OPTIONS_HTML = PROVIDER_OPTIONS.map(p => `<option value="${p.kind}">${p.label}</option>`).join('');
@@ -1678,6 +1679,7 @@ const PROVIDER_META = {
   together:   { label: 'Together AI', defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', needsBaseUrl: false, needsSecret: false, defaultBaseUrl: '' },
   bedrock:    { label: 'AWS Bedrock', defaultModel: 'anthropic.claude-3-5-sonnet-20240620-v1:0', needsBaseUrl: true, needsSecret: true, defaultBaseUrl: 'us-east-1' },
   cohere:     { label: 'Cohere',      defaultModel: 'command-r-plus', needsBaseUrl: false, needsSecret: false, defaultBaseUrl: '' },
+  kilo:       { label: 'Kilo (AI Gateway)', defaultModel: 'kilo/sonnet', needsBaseUrl: false, needsSecret: false, defaultBaseUrl: '' },
   ollama:     { label: 'Ollama',      defaultModel: 'llama3.2',     needsBaseUrl: true,  needsSecret: false, defaultBaseUrl: 'http://localhost:11434' },
 };
 

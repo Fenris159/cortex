@@ -94,6 +94,15 @@ async function cohereModels(apiKey: string): Promise<ModelEntry[]> {
   return (data.models ?? []).map((m) => ({ id: m.name }));
 }
 
+async function kiloModels(apiKey: string): Promise<ModelEntry[]> {
+  const res = await fetch('https://api.kilo.ai/v1/models', {
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+  });
+  if (!res.ok) throw new Error(`Kilo API error: ${res.status}`);
+  const data = await res.json() as { data: Array<{ id: string; name?: string }> };
+  return data.data.map((m) => ({ id: m.id, name: m.name }));
+}
+
 async function ollamaModels(_apiKey: string, baseUrl?: string): Promise<ModelEntry[]> {
   const url = (baseUrl || 'http://localhost:11434').replace(/\/$/, '');
   const res = await fetch(`${url}/api/tags`);
@@ -136,6 +145,7 @@ const LISTERS: Record<string, ModelLister | null> = {
   cohere: cohereModels,
   ollama: ollamaModels,
   bedrock: bedrockModels,
+  kilo: kiloModels,
 };
 
 export function fetchModels(kind: ProviderKind, apiKey?: string, baseUrl?: string): Promise<ModelEntry[]> {

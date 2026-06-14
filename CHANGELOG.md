@@ -10,6 +10,9 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
+- **Kilo (AI Gateway) provider** — OpenAI-compatible provider for the Kilo API at `api.kilo.ai`
+  - New `src/llm/kilo.ts` provider extending `OpenAICompatibleProvider` with `kilo/sonnet` as default model
+  - Full 7-point registration: config type, default config, router switch, setup wizard, model lister, UI dropdowns, and settings metadata
 - **Marketplace connection** — CLI commands to install plugins and agents from the remote marketplace at cortexprism.io
   - `cortex plugin install marketplace:<host>/plugins/<slug>` — resolves the marketplace: prefix, fetches the plugin manifest from the marketplace API, and installs it
   - `cortex agent import <url>` — fetches an agent configuration from a URL (e.g., the marketplace download endpoint), registers it as a local agent, and reports the result
