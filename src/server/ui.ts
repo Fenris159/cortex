@@ -170,6 +170,35 @@ const HTML = `<!DOCTYPE html>
   /* ── Scrollbar for log tables ─────────────────── */
   .log-table-scroll { overflow-y:auto; }
   .log-table-scroll::-webkit-scrollbar { width:6px; }
+
+  /* ── Sidebar section headers ──────────────────── */
+  .nav-section { padding:12px 12px 4px; font-size:10px; color:var(--text3); font-weight:600; letter-spacing:0.08em; text-transform:uppercase; }
+  .nav-item { position:relative; padding-left:12px; }
+  .nav-item .icon { width:18px; text-align:center; opacity:0.6; }
+  .nav-item.active .icon { opacity:1; }
+  .nav-item.active::before { content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:3px; height:18px; background:var(--accent); border-radius:0 3px 3px 0; }
+  .nav-item.compact { padding:6px 12px; font-size:12px; }
+
+  /* ── Command palette ──────────────────────────── */
+  #cmd-palette { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:9998; align-items:flex-start; justify-content:center; padding-top:10vh; backdrop-filter:blur(4px); }
+  #cmd-palette.open { display:flex; }
+  .cmd-modal { width:540px; max-width:90vw; background:var(--bg2); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 24px 80px rgba(0,0,0,0.5); }
+  .cmd-input-wrap { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); }
+  .cmd-input-wrap input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:14px; font-family:'Inter',sans-serif; }
+  .cmd-input-wrap input::placeholder { color:var(--text3); }
+  .cmd-hint { font-size:11px; color:var(--text3); padding:8px 16px; border-bottom:1px solid var(--border); }
+  .cmd-results { max-height:360px; overflow-y:auto; }
+  .cmd-item { display:flex; align-items:center; gap:12px; padding:10px 16px; cursor:pointer; transition:background 0.1s; border:none; background:transparent; width:100%; text-align:left; color:var(--text); font-size:13px; font-family:'Inter',sans-serif; }
+  .cmd-item:hover, .cmd-item.active { background:rgba(99,102,241,0.12); }
+  .cmd-item .cmd-icon { flex-shrink:0; width:20px; color:var(--text3); }
+  .cmd-item .cmd-label { flex:1; }
+  .cmd-item .cmd-shortcut { font-size:10px; color:var(--text3); background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; }
+
+  /* ── Sidebar quick search ─────────────────────── */
+  #sidebar-search { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:var(--text); font-size:12px; outline:none; font-family:'Inter',sans-serif; transition:border-color 0.15s; margin:0 0 8px; }
+  #sidebar-search:focus { border-color:rgba(99,102,241,0.4); }
+  #sidebar-search::placeholder { color:var(--text3); }
+  .nav-hidden { display:none !important; }
 </style>
 </head>
 <body>
@@ -193,61 +222,69 @@ const HTML = `<!DOCTYPE html>
   </div>
 
   <!-- Nav -->
-  <nav style="padding:8px;flex:1;overflow-y:auto;">
-    <button class="nav-item active" onclick="showPage('status');closeMobileSidebar()" id="nav-status">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> Status
-    </button>
-    <button class="nav-item" onclick="showPage('chat');closeMobileSidebar()" id="nav-chat">
+  <nav style="padding:6px 8px;flex:1;overflow-y:auto;">
+    <!-- Quick search -->
+    <input id="sidebar-search" placeholder="Search pages…" oninput="filterNav(this.value)" />
+
+    <!-- Core -->
+    <div class="nav-section">Core</div>
+    <button class="nav-item active" onclick="showPage('chat');closeMobileSidebar()" id="nav-chat">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Chat
     </button>
-    <button class="nav-item" onclick="showPage('lens');closeMobileSidebar()" id="nav-lens">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg></span> Lens
+    <button class="nav-item" onclick="showPage('status');closeMobileSidebar()" id="nav-status">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> Status
     </button>
+
+    <!-- Intelligence -->
+    <div class="nav-section">Intelligence</div>
     <button class="nav-item" onclick="showPage('memory');closeMobileSidebar()" id="nav-memory">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span> Memory
-    </button>
-    <button class="nav-item" onclick="showPage('jobs');closeMobileSidebar()" id="nav-jobs">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Jobs
     </button>
     <button class="nav-item" onclick="showPage('skills');closeMobileSidebar()" id="nav-skills">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> Skills
     </button>
-    <button class="nav-item" onclick="showPage('policies');closeMobileSidebar()" id="nav-policies">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Policies
+    <button class="nav-item" onclick="showPage('lens');closeMobileSidebar()" id="nav-lens">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg></span> Activity
     </button>
-    <button class="nav-item" onclick="showPage('analytics');closeMobileSidebar()" id="nav-analytics">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Analytics
-    </button>
-    <button class="nav-item" onclick="showPage('sessions');closeMobileSidebar()" id="nav-sessions">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span> Sessions
-    </button>
-    <button class="nav-item" onclick="showPage('settings');closeMobileSidebar()" id="nav-settings">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Settings
-    </button>
+
+    <!-- Management -->
+    <div class="nav-section">Management</div>
     <button class="nav-item" onclick="showPage('agents');closeMobileSidebar()" id="nav-agents">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Agents
     </button>
     <button class="nav-item" onclick="showPage('services');closeMobileSidebar()" id="nav-services">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><path d="M6 6h.01M6 18h.01"/></svg></span> Services
     </button>
-    <button class="nav-item" onclick="showPage('plugins');closeMobileSidebar()" id="nav-plugins">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span> Plugins
+    <button class="nav-item" onclick="showPage('jobs');closeMobileSidebar()" id="nav-jobs">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Jobs
+    </button>
+    <button class="nav-item" onclick="showPage('sessions');closeMobileSidebar()" id="nav-sessions">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span> Sessions
+    </button>
+
+    <!-- Configuration -->
+    <div class="nav-section">Configuration</div>
+    <button class="nav-item" onclick="showPage('settings');closeMobileSidebar()" id="nav-settings">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Settings
     </button>
     <button class="nav-item" onclick="showPage('soul');closeMobileSidebar()" id="nav-soul">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> Soul
     </button>
-    <button class="nav-item" onclick="showPage('cron');closeMobileSidebar()" id="nav-cron">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Cron
+    <button class="nav-item" onclick="showPage('policies');closeMobileSidebar()" id="nav-policies">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Policies
+    </button>
+    <button class="nav-item" onclick="showPage('plugins');closeMobileSidebar()" id="nav-plugins">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span> Plugins
+    </button>
+
+    <!-- Monitoring -->
+    <div class="nav-section">Monitoring</div>
+    <button class="nav-item" onclick="showPage('analytics');closeMobileSidebar()" id="nav-analytics">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Analytics
     </button>
     <button class="nav-item" onclick="showPage('logs');closeMobileSidebar()" id="nav-logs">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span> Logs
     </button>
-
-    <div class="divider" style="margin:8px 4px;"></div>
-
-    <!-- Sessions list -->
-    <div style="padding:4px 8px;font-size:11px;color:var(--text3);font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Sessions</div>
-    <div id="sessions-sidebar" style="margin-top:4px;"></div>
   </nav>
 
   <!-- Daemon status -->
@@ -351,7 +388,10 @@ const HTML = `<!DOCTYPE html>
         <h1 style="font-size:15px;font-weight:600;">Scheduled Jobs</h1>
         <p style="font-size:12px;color:var(--text3);margin-top:2px;">Cron, interval, and one-shot jobs</p>
       </div>
-      <button class="btn btn-ghost" onclick="loadJobs()">↻ Refresh</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="showCronModal()">+ New Job</button>
+        <button class="btn btn-ghost" onclick="loadJobs()">↻ Refresh</button>
+      </div>
     </div>
     <div id="jobs-list" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;"></div>
   </div>
@@ -578,36 +618,28 @@ const HTML = `<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Page: Cron -->
-  <div id="page-cron" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
-    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-      <div><h1 style="font-size:15px;font-weight:600;">Cron Jobs</h1><p style="font-size:12px;color:var(--text3);margin-top:2px;">Create, trigger, cancel, and delete scheduled jobs</p></div>
-      <button class="btn btn-ghost" onclick="showCronModal()">+ New Job</button>
-    </div>
-    <div id="cron-list" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;"></div>
-    <!-- Cron modal -->
-    <div id="cron-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center;">
-      <div class="card" style="width:480px;">
-        <div style="font-size:14px;font-weight:600;margin-bottom:14px;">New Cron Job</div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Name *</label><input class="inp" id="cj-name" placeholder="daily-summary" /></div>
-          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Kind</label>
-            <select class="inp" id="cj-kind" onchange="toggleCronFields()">
-              <option value="cron">Cron (schedule expression)</option>
-              <option value="interval">Interval</option>
-              <option value="once">Once (immediate)</option>
-            </select>
-          </div>
-          <div id="cj-schedule-row"><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Schedule <span style="color:var(--text3);">(e.g. <code style="font-size:11px;">0 9 * * *</code>)</span></label><input class="inp" id="cj-schedule" placeholder="0 9 * * *" /></div>
-          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Command *</label><input class="inp" id="cj-command" placeholder="cortex:consolidate:daily" /></div>
-          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Max Attempts</label><input class="inp" id="cj-max" type="number" value="3" style="width:80px;" /></div>
+  <!-- Cron modal (shared by Jobs page) -->
+  <div id="cron-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center;">
+    <div class="card" style="width:480px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:14px;">New Scheduled Job</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Name *</label><input class="inp" id="cj-name" placeholder="daily-summary" /></div>
+        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Kind</label>
+          <select class="inp" id="cj-kind" onchange="toggleCronFields()">
+            <option value="cron">Cron (schedule expression)</option>
+            <option value="interval">Interval</option>
+            <option value="once">Once (immediate)</option>
+          </select>
         </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--text3);">Preset commands: <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:hourly</code> · <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:daily</code> · <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:weekly</code></div>
-        <div style="display:flex;gap:8px;margin-top:14px;">
-          <button class="btn btn-primary" onclick="submitCronJob()">Create</button>
-          <button class="btn btn-ghost" onclick="hideCronModal()">Cancel</button>
-          <span id="cj-status" style="font-size:12px;align-self:center;margin-left:4px;"></span>
-        </div>
+        <div id="cj-schedule-row"><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Schedule <span style="color:var(--text3);">(e.g. <code style="font-size:11px;">0 9 * * *</code>)</span></label><input class="inp" id="cj-schedule" placeholder="0 9 * * *" /></div>
+        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Command *</label><input class="inp" id="cj-command" placeholder="cortex:consolidate:daily" /></div>
+        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Max Attempts</label><input class="inp" id="cj-max" type="number" value="3" style="width:80px;" /></div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3);">Preset commands: <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:hourly</code> · <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:daily</code> · <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px;">cortex:consolidate:weekly</code></div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-primary" onclick="submitCronJob()">Create</button>
+        <button class="btn btn-ghost" onclick="hideCronModal()">Cancel</button>
+        <span id="cj-status" style="font-size:12px;align-self:center;margin-left:4px;"></span>
       </div>
     </div>
   </div>
@@ -639,6 +671,19 @@ const HTML = `<!DOCTYPE html>
 </div>
 
 <div id="toast-container"></div>
+
+<!-- ── Command palette (Ctrl+K) ──────────────────── -->
+<div id="cmd-palette" onclick="closeCmdPalette(event)">
+  <div class="cmd-modal" onclick="event.stopPropagation()">
+    <div class="cmd-input-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0;"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="cmd-input" type="text" placeholder="Search pages and actions…" oninput="filterCmdPalette(this.value)" autofocus />
+      <span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">ESC</span>
+    </div>
+    <div class="cmd-hint">Type to filter pages. Press Enter to navigate, Esc to close.</div>
+    <div id="cmd-results" class="cmd-results"></div>
+  </div>
+</div>
 
 <script>
 const BASE = window.location.origin;
@@ -856,7 +901,7 @@ document.getElementById('chat-input').addEventListener('input', function() {
 });
 
 // ── Navigation ──────────────────────────────────────────────
-const PAGES = ['status','chat','lens','memory','jobs','skills','policies','analytics','sessions','settings','agents','services','plugins','soul','cron','logs'];
+const PAGES = ['chat','status','memory','skills','lens','agents','services','jobs','sessions','settings','soul','policies','plugins','analytics','logs'];
 function showPage(name) {
   currentPage = name;
   PAGES.forEach(p => {
@@ -878,7 +923,7 @@ function showPage(name) {
     status: loadStatus, lens: loadLens, memory: loadMemoryStats, jobs: loadJobs,
     skills: loadSkills, policies: loadPolicies, analytics: loadAnalytics,
     sessions: loadSessionsList, settings: loadSettings, plugins: loadPlugins,
-    soul: loadSoulFile, cron: loadCronJobs, logs: loadLogs,
+    soul: loadSoulFile, logs: loadLogs,
   };
   if (loaders[name]) loaders[name]();
 }
@@ -1893,6 +1938,120 @@ function toggleLogAutoRefresh() {
   else { clearInterval(logAutoRefreshTimer); logAutoRefreshTimer = null; }
 }
 
+// ── Command palette ──────────────────────────
+const CMD_PAGES = [
+  { id:'chat', label:'Chat', icon:'💬', desc:'Start a chat session' },
+  { id:'status', label:'Status', icon:'🏠', desc:'System overview and daemon status' },
+  { id:'memory', label:'Memory', icon:'📚', desc:'Browse episodic, semantic, and graph memory' },
+  { id:'skills', label:'Skills', icon:'⚡', desc:'Procedural memory — learned skill patterns' },
+  { id:'lens', label:'Activity', icon:'🔭', desc:'Real-time audit log of agent events' },
+  { id:'agents', label:'Agents', icon:'👥', desc:'Manage agent identities and selection' },
+  { id:'services', label:'Services', icon:'⚙', desc:'Micro-service lifecycle management' },
+  { id:'jobs', label:'Jobs', icon:'⏱', desc:'Scheduled cron, interval, and one-shot jobs' },
+  { id:'sessions', label:'Sessions', icon:'📁', desc:'Browse, search, export sessions' },
+  { id:'settings', label:'Settings', icon:'⚙', desc:'Configure providers, API keys, router' },
+  { id:'soul', label:'Soul', icon:'❤', desc:'Agent identity (SOUL.md, USER.md, MEMORY.md)' },
+  { id:'policies', label:'Policies', icon:'🛡', desc:'Security policy rules' },
+  { id:'plugins', label:'Plugins', icon:'🧩', desc:'ESM, MCP, and WASM plugin registry' },
+  { id:'analytics', label:'Analytics', icon:'📊', desc:'Token usage, cost, session statistics' },
+  { id:'logs', label:'Logs', icon:'📋', desc:'Filterable event log' },
+];
+
+function filterCmdPalette(query) {
+  const el = document.getElementById('cmd-results');
+  const q = query.toLowerCase().trim();
+  const filtered = q ? CMD_PAGES.filter(p => p.label.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) : CMD_PAGES;
+  if (!filtered.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">No results found.</div>';
+    return;
+  }
+  el.innerHTML = filtered.map((p, i) =>
+    '<button class="cmd-item' + (i === 0 ? ' active' : '') + '" onclick="navigateCmd(\'' + p.id + '\')" onmouseenter="highlightCmd(this)">' +
+    '<span class="cmd-icon">' + p.icon + '</span>' +
+    '<span class="cmd-label"><strong>' + p.label + '</strong><br><span style="font-size:11px;color:var(--text3);">' + p.desc + '</span></span>' +
+    '</button>'
+  ).join('');
+}
+
+function navigateCmd(pageId) {
+  closeCmdPalette({ target: document.getElementById('cmd-palette') });
+  showPage(pageId);
+}
+
+function highlightCmd(el) {
+  document.querySelectorAll('.cmd-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function openCmdPalette() {
+  const palette = document.getElementById('cmd-palette');
+  palette.classList.add('open');
+  const input = document.getElementById('cmd-input');
+  input.value = '';
+  input.focus();
+  filterCmdPalette('');
+}
+
+function closeCmdPalette(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('cmd-palette').classList.remove('open');
+}
+
+// ── Sidebar search ──────────────────────────
+function filterNav(query) {
+  const items = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.nav-section');
+  const q = query.toLowerCase().trim();
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.classList.toggle('nav-hidden', q && !text.includes(q));
+  });
+  sections.forEach(sec => {
+    let next = sec.nextElementSibling;
+    let hasVisible = false;
+    while (next && !next.classList.contains('nav-section')) {
+      if (next.classList.contains('nav-item') && !next.classList.contains('nav-hidden')) {
+        hasVisible = true; break;
+      }
+      next = next.nextElementSibling;
+    }
+    sec.classList.toggle('nav-hidden', q && !hasVisible && !sec.textContent.toLowerCase().includes(q));
+  });
+}
+
+// ── Keyboard shortcuts ──────────────────────
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    const palette = document.getElementById('cmd-palette');
+    if (palette.classList.contains('open')) {
+      closeCmdPalette({ target: palette });
+    } else {
+      openCmdPalette();
+    }
+  }
+  if (e.key === 'Escape') {
+    closeCmdPalette({ target: document.getElementById('cmd-palette') });
+  }
+  if (e.key === 'Enter') {
+    const active = document.querySelector('.cmd-item.active');
+    if (active) active.click();
+  }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    const palette = document.getElementById('cmd-palette');
+    if (!palette.classList.contains('open')) return;
+    e.preventDefault();
+    const items = document.querySelectorAll('.cmd-item');
+    const active = document.querySelector('.cmd-item.active');
+    let idx = Array.from(items).indexOf(active);
+    if (e.key === 'ArrowDown') idx = Math.min(idx + 1, items.length - 1);
+    else idx = Math.max(idx - 1, 0);
+    items.forEach(i => i.classList.remove('active'));
+    items[idx]?.classList.add('active');
+    items[idx]?.scrollIntoView({ block: 'nearest' });
+  }
+});
+
 // ── Boot ────────────────────────────────────────────────────
 connect();
 loadSessionsSidebar();
@@ -1901,7 +2060,7 @@ loadAgentSelector();
 setInterval(loadDaemonStatus, 15_000);
 setInterval(loadSessionsSidebar, 30_000);
 setInterval(loadAgentSelector, 30_000);
-showPage('status');
+showPage('chat');
 </script>
 </body>
 </html>`;
