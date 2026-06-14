@@ -15,6 +15,15 @@ export async function runSetupWizard(config: CortexConfig): Promise<CortexConfig
     options: [
       { name: 'Anthropic (Claude)', value: 'anthropic' },
       { name: 'OpenAI (GPT-4o)', value: 'openai' },
+      { name: 'Google (Gemini)', value: 'google' },
+      { name: 'Mistral AI', value: 'mistral' },
+      { name: 'Groq', value: 'groq' },
+      { name: 'DeepSeek', value: 'deepseek' },
+      { name: 'OpenRouter', value: 'openrouter' },
+      { name: 'xAI (Grok)', value: 'xai' },
+      { name: 'Together AI', value: 'together' },
+      { name: 'AWS Bedrock', value: 'bedrock' },
+      { name: 'Cohere', value: 'cohere' },
       { name: 'Ollama (local / self-hosted)', value: 'ollama' },
     ],
   })) as ProviderKind;
@@ -35,6 +44,79 @@ export async function runSetupWizard(config: CortexConfig): Promise<CortexConfig
       default: 'gpt-4o',
     });
     updated.providers.openai = { kind: 'openai', model, apiKey };
+  } else if (providerChoice === 'google') {
+    const apiKey = await Secret.prompt('Google API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'gemini-2.0-flash',
+    });
+    updated.providers.google = { kind: 'google', model, apiKey };
+  } else if (providerChoice === 'mistral') {
+    const apiKey = await Secret.prompt('Mistral API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'mistral-large-latest',
+    });
+    updated.providers.mistral = { kind: 'mistral', model, apiKey };
+  } else if (providerChoice === 'groq') {
+    const apiKey = await Secret.prompt('Groq API key (gsk_...):');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'llama-3.3-70b-versatile',
+    });
+    updated.providers.groq = { kind: 'groq', model, apiKey };
+  } else if (providerChoice === 'deepseek') {
+    const apiKey = await Secret.prompt('DeepSeek API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'deepseek-chat',
+    });
+    updated.providers.deepseek = { kind: 'deepseek', model, apiKey };
+  } else if (providerChoice === 'openrouter') {
+    const apiKey = await Secret.prompt('OpenRouter API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'openai/gpt-4o',
+    });
+    updated.providers.openrouter = { kind: 'openrouter', model, apiKey };
+  } else if (providerChoice === 'xai') {
+    const apiKey = await Secret.prompt('xAI API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'grok-2-latest',
+    });
+    updated.providers.xai = { kind: 'xai', model, apiKey };
+  } else if (providerChoice === 'together') {
+    const apiKey = await Secret.prompt('Together AI API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    });
+    updated.providers.together = { kind: 'together', model, apiKey };
+  } else if (providerChoice === 'bedrock') {
+    const accessKeyId = await Secret.prompt('AWS Access Key ID:');
+    const secretAccessKey = await Secret.prompt('AWS Secret Access Key:');
+    const region = await Input.prompt({
+      message: 'AWS Region:',
+      default: 'us-east-1',
+    });
+    const model = await Input.prompt({
+      message: 'Model ID:',
+      default: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+    });
+    updated.providers.bedrock = {
+      kind: 'bedrock', model,
+      apiKey: accessKeyId,
+      secretKey: secretAccessKey,
+      baseUrl: region,
+    };
+  } else if (providerChoice === 'cohere') {
+    const apiKey = await Secret.prompt('Cohere API key:');
+    const model = await Input.prompt({
+      message: 'Model name:',
+      default: 'command-r-plus',
+    });
+    updated.providers.cohere = { kind: 'cohere', model, apiKey };
   } else if (providerChoice === 'ollama') {
     const baseUrl = await Input.prompt({
       message: 'Ollama base URL:',

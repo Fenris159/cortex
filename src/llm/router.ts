@@ -1,8 +1,72 @@
 import { AnthropicProvider } from './anthropic.ts';
 import { OllamaProvider } from './ollama.ts';
 import { OpenAIProvider } from './openai.ts';
+import { GoogleProvider } from './google.ts';
+import { MistralProvider } from './mistral.ts';
+import { GroqProvider } from './groq.ts';
+import { DeepSeekProvider } from './deepseek.ts';
+import { OpenRouterProvider } from './openrouter.ts';
+import { XAIProvider } from './xai.ts';
+import { TogetherProvider } from './together.ts';
+import { BedrockProvider } from './bedrock.ts';
+import { CohereProvider } from './cohere.ts';
 import type { LLMProvider, CompletionOptions, CompletionResult, CompletionChunk } from './types.ts';
 import type { CortexConfig, ProviderKind, ProviderConfig } from '../config/config.ts';
+
+function createProvider(kind: ProviderKind, cfg: ProviderConfig): LLMProvider {
+  switch (kind) {
+    case 'anthropic':
+      if (!cfg.apiKey) throw new Error('Anthropic API key is required.');
+      return new AnthropicProvider(cfg.apiKey);
+
+    case 'openai':
+      if (!cfg.apiKey) throw new Error('OpenAI API key is required.');
+      return new OpenAIProvider(cfg.apiKey, cfg.baseUrl);
+
+    case 'ollama':
+      return new OllamaProvider(cfg.baseUrl ?? 'http://localhost:11434');
+
+    case 'google':
+      if (!cfg.apiKey) throw new Error('Google API key is required.');
+      return new GoogleProvider(cfg.apiKey);
+
+    case 'mistral':
+      if (!cfg.apiKey) throw new Error('Mistral API key is required.');
+      return new MistralProvider(cfg.apiKey);
+
+    case 'groq':
+      if (!cfg.apiKey) throw new Error('Groq API key is required.');
+      return new GroqProvider(cfg.apiKey);
+
+    case 'deepseek':
+      if (!cfg.apiKey) throw new Error('DeepSeek API key is required.');
+      return new DeepSeekProvider(cfg.apiKey);
+
+    case 'openrouter':
+      if (!cfg.apiKey) throw new Error('OpenRouter API key is required.');
+      return new OpenRouterProvider(cfg.apiKey);
+
+    case 'xai':
+      if (!cfg.apiKey) throw new Error('xAI API key is required.');
+      return new XAIProvider(cfg.apiKey);
+
+    case 'together':
+      if (!cfg.apiKey) throw new Error('Together AI API key is required.');
+      return new TogetherProvider(cfg.apiKey);
+
+    case 'bedrock':
+      if (!cfg.apiKey) throw new Error('AWS access key ID is required.');
+      if (!cfg.secretKey) throw new Error('AWS secret access key is required.');
+      return new BedrockProvider(cfg.apiKey, cfg.secretKey, cfg.baseUrl ?? 'us-east-1');
+
+    case 'cohere':
+      if (!cfg.apiKey) throw new Error('Cohere API key is required.');
+      return new CohereProvider(cfg.apiKey);
+
+    default:
+      throw new Error(`Unknown provider kind: ${kind}`);
+  }
+}
 
 export function buildProvider(config: CortexConfig): LLMProvider {
   const kind = config.defaultProvider;
@@ -14,39 +78,14 @@ export function buildProvider(config: CortexConfig): LLMProvider {
     );
   }
 
-  switch (kind) {
-    case 'anthropic':
-      if (!providerConfig.apiKey) throw new Error('Anthropic API key is required.');
-      return new AnthropicProvider(providerConfig.apiKey);
-
-    case 'openai':
-      if (!providerConfig.apiKey) throw new Error('OpenAI API key is required.');
-      return new OpenAIProvider(providerConfig.apiKey, providerConfig.baseUrl);
-
-    case 'ollama':
-      return new OllamaProvider(providerConfig.baseUrl ?? 'http://localhost:11434');
-
-    default:
-      throw new Error(`Unknown provider kind: ${kind}`);
-  }
+  return createProvider(kind, providerConfig);
 }
 
 export function buildProviderFromConfig(
   kind: ProviderKind,
   cfg: ProviderConfig,
 ): LLMProvider {
-  switch (kind) {
-    case 'anthropic':
-      if (!cfg.apiKey) throw new Error('Anthropic API key required');
-      return new AnthropicProvider(cfg.apiKey);
-    case 'openai':
-      if (!cfg.apiKey) throw new Error('OpenAI API key required');
-      return new OpenAIProvider(cfg.apiKey, cfg.baseUrl);
-    case 'ollama':
-      return new OllamaProvider(cfg.baseUrl ?? 'http://localhost:11434');
-    default:
-      throw new Error(`Unknown provider kind: ${kind}`);
-  }
+  return createProvider(kind, cfg);
 }
 
 export class CascadeRouter implements LLMProvider {

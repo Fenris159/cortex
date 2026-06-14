@@ -2,6 +2,7 @@ import { handleApi } from './router.ts';
 import { handleWebSocket } from './ws.ts';
 import { serveUi } from './ui.ts';
 import { runMigrations } from '../db/migrate.ts';
+import { ensureDaemons } from '../cli/daemon.ts';
 
 export interface ServeOptions {
   port: number;
@@ -10,6 +11,9 @@ export interface ServeOptions {
 
 export async function startServer(opts: ServeOptions): Promise<void> {
   await runMigrations();
+
+  // Ensure background daemons are running
+  ensureDaemons().catch(() => {});
 
   const { port, host } = opts;
 

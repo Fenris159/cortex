@@ -9,8 +9,34 @@ Versioning: [Semantic Versioning](https://semver.org/)
 
 ## [Unreleased]
 
-### Fixed
-- **JavaScript syntax errors in SPA** — escape sequences (`\'`, `\n`, `\/`) inside the outer template literal were consumed by the backtick parser, producing broken JS (bare `'` chars, actual newlines in strings, broken regex). Changed to double-backslash (`\\'`, `\\n`, `\\/`) so the output HTML contains correct JS escape sequences.
+### Added
+- **10 new LLM providers** (`src/llm/`):
+  - **Google Gemini** (`google.ts`) — native SDK integration with streaming and usage metadata
+  - **Mistral AI** (`mistral.ts`) — OpenAI-compatible, uses Mistral's API
+  - **Groq** (`groq.ts`) — fast inference via OpenAI-compatible API
+  - **DeepSeek** (`deepseek.ts`) — DeepSeek Chat and Reasoner models
+  - **OpenRouter** (`openrouter.ts`) — unified access to 200+ models
+  - **xAI (Grok)** (`xai.ts`) — Grok models via xAI API
+  - **Together AI** (`together.ts`) — 100+ open-source models
+  - **AWS Bedrock** (`bedrock.ts`) — Converse API with Claude, Llama, Titan models
+  - **Cohere** (`cohere.ts`) — Command R+ via Cohere v2 API
+  - **`OpenAICompatibleProvider`** (`openai-compatible.ts`) — reusable base class for any OpenAI-compatible API
+
+- **Daemon supervisor with auto-restart** (`src/processes/supervisor-process.ts`):
+  - Spawns and monitors validator, executor, and scheduler processes
+  - Auto-restarts crashed children with exponential backoff (`min(2^n × 1s, 30s)`)
+  - Graceful SIGINT/SIGTERM shutdown of all children
+  - `cortex daemon start` — spawns supervisor in the background
+  - `cortex daemon run` — runs supervisor in the foreground (for systemd/tmux)
+
+- **`cortex serve --daemon` / `-d`** — run the HTTP server as a background daemon process
+
+- **Auto-start daemons** — `cortex chat` and `cortex serve` automatically start the daemon supervisor if not already running
+
+### Changed
+- **`daemon start`** now spawns a supervising process (not bare children), ensuring background processes stay alive
+- **`daemon stop`** also kills supervisor process for clean teardown
+- **Provider config** — `ProviderConfig` now supports optional `secretKey` field for providers requiring separate secret keys (e.g., AWS Bedrock)
 
 ### Added
 - **Workspace infrastructure** (`src/workspace/`) — agent-scoped private workspaces + shared global workspace:

@@ -13,7 +13,8 @@
     "validator": "deno run --allow-read --allow-write --allow-net --allow-env --allow-sys src/processes/validator-process.ts",
     "executor": "deno run --allow-read --allow-write --allow-run --allow-net --allow-env --allow-sys src/processes/executor-process.ts",
     "scheduler": "deno run --allow-read --allow-write --allow-run --allow-net --allow-env --allow-sys src/processes/scheduler-process.ts",
-    "daemon": "deno run --allow-all src/main.ts daemon start"
+    "daemon": "deno run --allow-all src/main.ts daemon run",
+    "daemon:start": "deno run --allow-all src/main.ts daemon start"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.19",
@@ -25,6 +26,8 @@
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.2.1",
     "npm:@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.39.0",
     "npm:openai": "npm:openai@^4.98.0",
+    "npm:@google/generative-ai": "npm:@google/generative-ai@^0.21.0",
+    "npm:@aws-sdk/client-bedrock-runtime": "npm:@aws-sdk/client-bedrock-runtime@^3.750.0",
     "npm:@libsql/client": "npm:@libsql/client@^0.15.5"
   },
   "compilerOptions": {

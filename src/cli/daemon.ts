@@ -3,28 +3,33 @@ import { bold, green, red, dim, cyan } from '@std/fmt/colors';
 import { pingProcess, VALIDATOR_SOCK, EXECUTOR_SOCK, SCHEDULER_SOCK } from '../ipc/transport.ts';
 
 const PROCESS_DEFS = [
-  {
-    name: 'validator',
-    label: 'Cortex Validator',
-    entry: 'src/processes/validator-process.ts',
-    sock: VALIDATOR_SOCK,
-    permissions: ['--allow-read', '--allow-write', '--allow-net', '--allow-env', '--allow-sys', '--allow-ffi'],
-  },
-  {
-    name: 'executor',
-    label: 'Cortex Executor',
-    entry: 'src/processes/executor-process.ts',
-    sock: EXECUTOR_SOCK,
-    permissions: ['--allow-read', '--allow-write', '--allow-run', '--allow-net', '--allow-env', '--allow-sys', '--allow-ffi'],
-  },
-  {
-    name: 'scheduler',
-    label: 'Cortex Scheduler',
-    entry: 'src/processes/scheduler-process.ts',
-    sock: SCHEDULER_SOCK,
-    permissions: ['--allow-read', '--allow-write', '--allow-run', '--allow-net', '--allow-env', '--allow-sys', '--allow-ffi'],
-  },
+  { name: 'validator', label: 'Cortex Validator', sock: VALIDATOR_SOCK },
+  { name: 'executor', label: 'Cortex Executor', sock: EXECUTOR_SOCK },
+  { name: 'scheduler', label: 'Cortex Scheduler', sock: SCHEDULER_SOCK },
 ] as const;
+
+/** Start the daemon supervisor in the background if not already running. Used by chat/serve for auto-start. */
+export async function ensureDaemons(): Promise<void> {
+  const alive = await pingProcess(VALIDATOR_SOCK);
+  if (alive) return;
+
+  const supervisorPath = new URL('../processes/supervisor-process.ts', import.meta.url).pathname;
+  const cmd = new Deno.Command(Deno.execPath(), {
+    args: ['run', '--allow-all', supervisorPath],
+    stdout: 'null',
+    stderr: 'null',
+    stdin: 'null',
+  });
+  cmd.spawn();
+
+  // Wait up to 6s for at least one daemon to be ready
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    if (await pingProcess(VALIDATOR_SOCK)) return;
+  }
+}
+
+// ── CLI commands ────────────────────────────────────────────
 
 export const daemonCommand = new Command()
   .name('daemon')
@@ -32,41 +37,54 @@ export const daemonCommand = new Command()
   .command(
     'start',
     new Command()
-      .description('Start all Cortex background processes')
-      .option('--only <process:string>', 'Start only a specific process (validator|executor|scheduler)')
-      .action(async (opts) => {
-        const targets = opts.only
-          ? PROCESS_DEFS.filter((p) => p.name === opts.only)
-          : [...PROCESS_DEFS];
+      .description('Start the Cortex daemon supervisor in the background')
+      .action(async () => {
+        const supervisorEntry = '../processes/supervisor-process.ts';
+        const supervisorPath = new URL(supervisorEntry, import.meta.url).pathname;
 
-        if (targets.length === 0) {
-          console.log(red(`Unknown process: ${opts.only}`));
-          Deno.exit(1);
+        // Check if supervisor is already running
+        if (await pingProcess(VALIDATOR_SOCK)) {
+          console.log(dim('  Daemon supervisor is already running.'));
+          Deno.exit(0);
         }
 
-        for (const proc of targets) {
-          const alive = await pingProcess(proc.sock);
-          if (alive) {
-            console.log(dim(`  ${proc.label} already running`));
-            continue;
-          }
+        const cmd = new Deno.Command(Deno.execPath(), {
+          args: ['run', '--allow-all', supervisorPath],
+          stdout: 'null',
+          stderr: 'null',
+          stdin: 'null',
+        });
 
-          const cmd = new Deno.Command(Deno.execPath(), {
-            args: ['run', ...proc.permissions, proc.entry],
-            stdout: 'inherit',
-            stderr: 'inherit',
-            stdin: 'null',
-          });
+        cmd.spawn();
+        console.log(green('  ✓ Cortex daemon supervisor started in background'));
 
-          cmd.spawn();
-          console.log(green(`  ✓ Started: ${bold(proc.label)}`));
-
-          await new Promise((r) => setTimeout(r, 500));
-          const up = await pingProcess(proc.sock);
-          if (!up) {
-            console.log(dim(`    (socket not yet ready — process starting in background)`));
-          }
+        // Brief wait for processes to come online
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 200));
+          if (await pingProcess(VALIDATOR_SOCK)) break;
         }
+
+        Deno.exit(0);
+      }),
+  )
+  .command(
+    'run',
+    new Command()
+      .description('Run the daemon supervisor in the foreground (for systemd/tmux)')
+      .action(async () => {
+        const supervisorEntry = '../processes/supervisor-process.ts';
+        const supervisorPath = new URL(supervisorEntry, import.meta.url).pathname;
+
+        const cmd = new Deno.Command(Deno.execPath(), {
+          args: ['run', '--allow-all', supervisorPath],
+          stdout: 'inherit',
+          stderr: 'inherit',
+          stdin: 'inherit',
+        });
+
+        const child = cmd.spawn();
+        const status = await child.status;
+        Deno.exit(status.code ?? 1);
       }),
   )
   .command(
@@ -86,9 +104,9 @@ export const daemonCommand = new Command()
   .command(
     'stop',
     new Command()
-      .description('Stop all Cortex background processes (sends SIGTERM via pkill)')
+      .description('Stop all Cortex background processes')
       .action(async () => {
-        const patterns = ['validator-process', 'executor-process', 'scheduler-process'];
+        const patterns = ['supervisor-process', 'validator-process', 'executor-process', 'scheduler-process'];
         for (const pat of patterns) {
           try {
             const cmd = new Deno.Command('pkill', { args: ['-f', pat] });

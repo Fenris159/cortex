@@ -1,13 +1,27 @@
 import { exists } from '@std/fs';
 import { PATHS } from './paths.ts';
 
-export type ProviderKind = 'anthropic' | 'openai' | 'ollama';
+export type ProviderKind =
+  | 'anthropic'
+  | 'openai'
+  | 'ollama'
+  | 'google'
+  | 'mistral'
+  | 'groq'
+  | 'deepseek'
+  | 'openrouter'
+  | 'xai'
+  | 'together'
+  | 'bedrock'
+  | 'cohere';
 
 export interface ProviderConfig {
   kind: ProviderKind;
   model: string;
   apiKey?: string;
   baseUrl?: string;
+  /** For providers that need separate secret key (e.g. AWS Bedrock) */
+  secretKey?: string;
 }
 
 export interface RouterConfig {
@@ -72,6 +86,15 @@ const DEFAULT_CONFIG: CortexConfig = {
     anthropic: undefined,
     openai: undefined,
     ollama: undefined,
+    google: undefined,
+    mistral: undefined,
+    groq: undefined,
+    deepseek: undefined,
+    openrouter: undefined,
+    xai: undefined,
+    together: undefined,
+    bedrock: undefined,
+    cohere: undefined,
   },
   agent: {
     name: 'Cortex',

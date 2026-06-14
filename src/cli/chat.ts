@@ -12,6 +12,7 @@ import { createSession, closeSession } from '../db/sessions.ts';
 import { logEvent } from '../db/lens.ts';
 import { ToolRegistry } from '../tools/registry.ts';
 import type { Tool } from '../tools/types.ts';
+import { ensureDaemons } from './daemon.ts';
 import { buildEmbedder } from '../memory/embeddings.ts';
 import { fileReadTool } from '../tools/builtin/file_read.ts';
 import { shellTool } from '../tools/builtin/shell.ts';
@@ -67,6 +68,9 @@ export const chatCommand = new Command()
       console.log('');
       Deno.exit(0);
     }
+
+    // Ensure background daemons are running
+    ensureDaemons().catch(() => {});
 
     // Resolve agent
     let agent: AgentConfig;

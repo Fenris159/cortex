@@ -87,6 +87,16 @@ agentTurn(opts)
 |---|---|---|
 | `anthropic.ts` | Anthropic Claude | Server-sent events streaming |
 | `openai.ts` | OpenAI | `stream: true` mode |
+| `openai-compatible.ts` | Base class | Reusable for any OpenAI-compatible API |
+| `google.ts` | Google Gemini | Native SDK, stream via `GenerateContentStreamResult.stream` |
+| `mistral.ts` | Mistral AI | OpenAI-compatible via Mistral API |
+| `groq.ts` | Groq | OpenAI-compatible, ultra-fast inference |
+| `deepseek.ts` | DeepSeek | OpenAI-compatible, DeepSeek Chat + Reasoner |
+| `openrouter.ts` | OpenRouter | OpenAI-compatible, routes to 200+ models |
+| `xai.ts` | xAI (Grok) | OpenAI-compatible via xAI API |
+| `together.ts` | Together AI | OpenAI-compatible, 100+ open models |
+| `bedrock.ts` | AWS Bedrock | AWS SDK Converse API (Claude, Llama, Titan) |
+| `cohere.ts` | Cohere | Native v2 API via fetch |
 | `ollama.ts` | Ollama | Local models, NDJSON streaming |
 
 All implement `LLMProvider`:
@@ -121,6 +131,51 @@ Enable via config:
   }
 }
 ```
+
+---
+
+## Daemon Supervisor (`src/processes/supervisor-process.ts`)
+
+The daemon supervisor manages three background processes required for tool security and job scheduling:
+
+```
+cortex daemon start / chat / serve auto-start
+         │
+         ▼
+  supervisor-process.ts
+         │
+         ├── validator-process.ts   ← IPC socket: approves/rejects tool intents
+         │     policy check → allow/deny → logged to Lens
+         │
+         ├── executor-process.ts    ← IPC socket: executes approved tool calls
+         │     file read/write, shell commands, directory listing
+         │
+         └── scheduler-process.ts   ← DB polling: runs cron jobs every 30s
+               memory consolidation, scheduled commands
+```
+
+### Supervision loop
+
+- Each child is spawned via `Deno.Command` with `--allow-*` scoped permissions
+- On crash (non-zero exit), the supervisor waits `min(2^n × 1s, 30s)` then restarts
+- On clean exit (zero exit), the process is not restarted
+- `SIGINT`/`SIGTERM` triggers cascading shutdown of all children
+
+### IPC protocol
+
+All three daemons communicate via Unix domain sockets in `/tmp/cortex/`:
+
+```
+/tmp/cortex/validator.sock
+/tmp/cortex/executor.sock
+/tmp/cortex/scheduler.sock
+```
+
+Messages are JSON-line, connection-per-message. Heartbeat pings check liveness.
+
+### Auto-start
+
+`cortex chat` and `cortex serve` call `ensureDaemons()` which pings the validator socket and starts the supervisor if needed. The web server can also run in the background via `cortex serve -d`.
 
 ---
 
@@ -346,11 +401,20 @@ All databases use SQLite WAL mode via `@libsql/client`. Migrations are idempoten
 ```typescript
 interface CortexConfig {
   version: number;
-  defaultProvider: 'anthropic' | 'openai' | 'ollama';
+  defaultProvider: 'anthropic' | 'openai' | 'ollama' | 'google' | 'mistral' | 'groq' | 'deepseek' | 'openrouter' | 'xai' | 'together' | 'bedrock' | 'cohere';
   providers: {
-    anthropic?: { kind: 'anthropic'; model: string; apiKey?: string };
-    openai?:    { kind: 'openai';    model: string; apiKey?: string; baseUrl?: string };
-    ollama?:    { kind: 'ollama';    model: string; baseUrl?: string };
+    anthropic?:  { kind: 'anthropic';  model: string; apiKey?: string };
+    openai?:     { kind: 'openai';     model: string; apiKey?: string; baseUrl?: string };
+    google?:     { kind: 'google';     model: string; apiKey?: string };
+    mistral?:    { kind: 'mistral';    model: string; apiKey?: string };
+    groq?:       { kind: 'groq';       model: string; apiKey?: string };
+    deepseek?:   { kind: 'deepseek';   model: string; apiKey?: string };
+    openrouter?: { kind: 'openrouter'; model: string; apiKey?: string };
+    xai?:        { kind: 'xai';        model: string; apiKey?: string };
+    together?:   { kind: 'together';   model: string; apiKey?: string };
+    bedrock?:    { kind: 'bedrock';    model: string; apiKey?: string; secretKey?: string; baseUrl?: string };
+    cohere?:     { kind: 'cohere';     model: string; apiKey?: string };
+    ollama?:     { kind: 'ollama';     model: string; baseUrl?: string };
   };
   agent: {
     name: string;

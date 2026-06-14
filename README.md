@@ -9,7 +9,7 @@
 
 ## Features
 
-- **Interactive chat** — streaming CLI chat with any LLM (Anthropic, OpenAI, Ollama)
+- **Interactive chat** — streaming CLI chat with 12 LLM providers: Anthropic, OpenAI, Google Gemini, Mistral, Groq, DeepSeek, OpenRouter, xAI, Together AI, AWS Bedrock, Cohere, Ollama
 - **Tool use** — file read, shell execution, web search, code execution — all with approval gates
 - **Coding sandbox** — ephemeral Docker containers (or subprocess fallback) with resource limits; LLM auto-fix loop
 - **5-tier memory** — episodic (FTS5 keyword), semantic (vector embeddings), reflection (learned patterns); multi-strategy retrieval with decay scoring
@@ -55,6 +55,7 @@ Commands:
   sessions          List recent chat sessions
   run <file>        Execute a code file in the sandbox
   serve             Start the HTTP + WebSocket server with Web UI
+  daemon            Manage background processes (validator, executor, scheduler)
   memory            Search and manage memory
   reflect           Inspect and consolidate reflection patterns
   jobs              Manage scheduled jobs
@@ -89,11 +90,28 @@ cortex run script.py --fix --max-fix 6  # Up to 6 fix attempts
 
 Supported languages: `python`, `javascript`, `typescript`, `bash`, `ruby`, `go`, `rust`
 
+### `cortex daemon`
+
+```bash
+cortex daemon start                  # Start supervisor + all daemons in background (auto-restart on crash)
+cortex daemon run                    # Run supervisor in foreground (for systemd / tmux)
+cortex daemon status                 # Show running/stopped for each daemon process
+cortex daemon stop                   # Stop all daemon processes
+```
+
+Three daemon processes are managed:
+- **Validator** — approves/rejects tool intents via security policy
+- **Executor** — executes approved tool calls (file ops, shell commands)
+- **Scheduler** — runs cron jobs and periodic memory consolidation
+
+The supervisor auto-restarts any crashed daemon with exponential backoff.
+
 ### `cortex serve`
 
 ```bash
-cortex serve                         # http://127.0.0.1:3000
+cortex serve                         # http://127.0.0.1:3000 (foreground)
 cortex serve --port 8080 --host 0.0.0.0
+cortex serve -d                      # Run in the background (daemon mode)
 ```
 
 Web UI tabs: **Chat** (WebSocket streaming), **Lens** (activity timeline), **Memory** (search), **Jobs** (status)
@@ -163,9 +181,18 @@ Config file: `~/.cortex/config.json`
   "version": 1,
   "defaultProvider": "anthropic",
   "providers": {
-    "anthropic": { "kind": "anthropic", "model": "claude-sonnet-4-5", "apiKey": "sk-..." },
-    "openai":    { "kind": "openai",    "model": "gpt-4o",            "apiKey": "sk-..." },
-    "ollama":    { "kind": "ollama",    "model": "llama3.2",          "baseUrl": "http://localhost:11434" }
+    "anthropic":  { "kind": "anthropic",  "model": "claude-sonnet-4-5",       "apiKey": "sk-..." },
+    "openai":     { "kind": "openai",     "model": "gpt-4o",                  "apiKey": "sk-..." },
+    "google":     { "kind": "google",     "model": "gemini-2.0-flash",        "apiKey": "..." },
+    "mistral":    { "kind": "mistral",    "model": "mistral-large-latest",    "apiKey": "..." },
+    "groq":       { "kind": "groq",       "model": "llama-3.3-70b-versatile", "apiKey": "gsk_..." },
+    "deepseek":   { "kind": "deepseek",   "model": "deepseek-chat",           "apiKey": "sk-..." },
+    "openrouter": { "kind": "openrouter", "model": "openai/gpt-4o",           "apiKey": "..." },
+    "xai":        { "kind": "xai",        "model": "grok-2-latest",           "apiKey": "..." },
+    "together":   { "kind": "together",   "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "apiKey": "..." },
+    "bedrock":    { "kind": "bedrock",    "model": "anthropic.claude-3-5-sonnet-20240620-v1:0", "apiKey": "AKIA...", "secretKey": "...", "baseUrl": "us-east-1" },
+    "cohere":     { "kind": "cohere",     "model": "command-r-plus",          "apiKey": "..." },
+    "ollama":     { "kind": "ollama",     "model": "llama3.2",                "baseUrl": "http://localhost:11434" }
   },
   "agent": {
     "name": "Cortex",
@@ -223,8 +250,9 @@ cortex chat / cortex serve
        ├── tools/executor.ts ← parse tool calls, validate, execute
        │   └── security/validator.ts  ← Parallax policy gate
        │
-       ├── llm/router.ts     ← CascadeRouter (optional)
-       │   └── anthropic / openai / ollama providers
+        ├── llm/router.ts     ← CascadeRouter (optional)
+        │   └── anthropic / openai / google / mistral / groq / deepseek /
+        │       openrouter / xai / together / bedrock / cohere / ollama
        │
        └── sandbox/executor.ts  ← Docker / subprocess code execution
            └── sandbox/autofix.ts  ← LLM fix loop
@@ -278,13 +306,15 @@ src/
 │   └── soul.ts                  Agent persona + system prompt builder
 ├── cli/
 │   ├── chat.ts                  cortex chat
+│   ├── daemon.ts                cortex daemon (start/run/status/stop) + ensureDaemons()
 │   ├── jobs.ts                  cortex jobs
 │   ├── memory-cmd.ts            cortex memory
 │   ├── migrate.ts               cortex migrate
 │   ├── policy-cmd.ts            cortex policy
 │   ├── reflect.ts               cortex reflect
 │   ├── run.ts                   cortex run
-│   ├── serve.ts                 cortex serve
+│   ├── serve.ts                 cortex serve (with --daemon flag)
+│   ├── service-cmd.ts           cortex service
 │   ├── sessions.ts              cortex sessions
 │   ├── setup.ts                 First-run setup wizard
 │   ├── setup-cmd.ts             cortex setup
@@ -311,6 +341,16 @@ src/
 │   ├── types.ts                 LLMProvider interface
 │   ├── anthropic.ts             Anthropic Claude provider
 │   ├── openai.ts                OpenAI provider
+│   ├── openai-compatible.ts     Reusable base for OpenAI-compatible providers
+│   ├── google.ts                Google Gemini provider
+│   ├── mistral.ts               Mistral AI provider
+│   ├── groq.ts                  Groq provider
+│   ├── deepseek.ts              DeepSeek provider
+│   ├── openrouter.ts            OpenRouter provider
+│   ├── xai.ts                   xAI (Grok) provider
+│   ├── together.ts              Together AI provider
+│   ├── bedrock.ts               AWS Bedrock provider
+│   ├── cohere.ts                Cohere provider
 │   ├── ollama.ts                Ollama local provider
 │   └── router.ts                buildProvider + CascadeRouter
 ├── memory/
@@ -320,6 +360,13 @@ src/
 ├── sandbox/
 │   ├── executor.ts              Docker / subprocess sandbox runner
 │   └── autofix.ts               LLM auto-fix loop
+├── processes/
+│   ├── supervisor-process.ts    Daemon supervisor (auto-restart children on crash)
+│   ├── validator-process.ts     Tool intent validator daemon
+│   ├── executor-process.ts      Tool execution daemon
+│   ├── scheduler-process.ts     Cron job scheduler daemon
+│   ├── sub-agent-entry.ts       Sub-agent child process entry point
+│   └── service-entry.ts         Micro-service child process entry point
 ├── scheduler/
 │   └── scheduler.ts             SQLite-persisted job scheduler
 ├── security/
