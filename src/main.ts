@@ -20,6 +20,7 @@ import { agentCommand } from './cli/agent-cmd.ts';
 import { serviceCommand } from './cli/service-cmd.ts';
 import { stopCommand } from './cli/stop.ts';
 import { updateCommand } from './cli/update-cmd.ts';
+import { getVersion } from './config/version.ts';
 import { runValidator } from './processes/validator-process.ts';
 import { runExecutor } from './processes/executor-process.ts';
 import { runScheduler } from './processes/scheduler-process.ts';
@@ -80,18 +81,3 @@ const program = new Command()
   .command('update', updateCommand);
 
 await program.parse(Deno.args);
-
-async function getVersion(): Promise<string> {
-  try {
-    const text = await Deno.readTextFile(new URL('../VERSION', import.meta.url).pathname);
-    return text.trim();
-  } catch {
-    try {
-      const text = await Deno.readTextFile(new URL('../deno.json', import.meta.url).pathname);
-      const { version } = JSON.parse(text);
-      return version || '0.1.0';
-    } catch {
-      return '0.1.0';
-    }
-  }
-}
